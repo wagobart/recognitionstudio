@@ -29,6 +29,25 @@ Also tested: dropped connection mid-generation → artwork recovered automatical
 7. Ornament line cutting through the name's descenders.
 8. Test-mode planner titled thank-you/veteran pieces "Certificate of Completion".
 
+## Live test with real AI — 2026-10-31 (recognitionstudio.pages.dev)
+Driven in the Claude desktop app's built-in browser (Chromium, desktop window — **not** an iPhone), account wagobart@gmail.com. 8 artwork generations (~$2 estimated). Saved in My projects:
+
+| Project | Output | Result |
+|---|---|---|
+| Mike Kowalski — union carpenter retirement | Certificate | Tool belt, hammer, tape, framing square, pencil, oak leaves + walleye in border. Planner wording specific and accurate. 18 s. |
+| Priya Natarajan, RN — Nurses Week | Certificate | Stethoscope hearts, roses, night sky; Elegant script. 25 s. |
+| CPO Robert L. Hayes — Navy veteran | Certificate | Destroyers, ship's wheel, anchors, rope border; Engraved. 34 s. |
+| Dale — railroad retirement, gone fishin' | Wood-burning | Clean burnable line art: walleye, lure, cattails, trestle + train; outline lettering. 32 s. |
+| Copper — dog memorial | Wood-burning | Retriever portrait, paw prints, rainbow; lettering shifted to avoid the portrait. 34 s. |
+| Isabella Gonzalez-Whitfield — kindergarten | Certificate | Crayons, blocks, balloons, caps; long name fits; Personal lettering. 32 s. |
+| Bart Fitzgerald-Montgomery III — 25-yr custodian | Certificate | Very long title/body/name + 2 signers + date all fit. Then "change something" redraw (remove mops, add bell + autumn leaves) honored; wording kept; version 1 still selectable. 31 s. |
+
+### Problems found with real AI, and fixes
+1. **Lettering overlapped the artwork** (signature row on the border, text into the fish). The AI rarely leaves exactly the requested space → app now **measures the empty area of each image** and fits text inside it (`public/js/zone.js`). Verified on all 7 designs.
+2. **Planner invented a date** ("2024") → numbers not present in the user's idea are now stripped from date/details/body/title.
+3. **Planner left a placeholder** ("Years of Service: [Years]") → prompt forbids placeholders and bracketed fragments are removed.
+4. Planner sometimes writes awkward lead-ins (e.g. "Forever in our hearts, remember") — editable by the user; not fixed automatically.
+
 ## NOT yet verified — required before calling it production-ready
 - **Real AI quality**: planner wording/layout choice and image model actually leaving a clean, text-free lettering area for each composition. Needs the key + deployed site.
 - **Real iPhone Safari**: share sheet → Save to Files, in-app PDF preview (iframe PDF rendering differs on iOS), keyboard + pinned preview behaviour, safe areas. Emulation cannot confirm these.

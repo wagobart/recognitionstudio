@@ -93,6 +93,11 @@ function dropInventedFacts(plan, idea) {
   const nums = new Set(String(idea).match(/\d+/g) || []);
   const invented = (s) => (String(s).match(/\d+/g) || []).some((n) => !nums.has(n));
   if (w.date && invented(w.date)) w.date = '';
+  // remove placeholder fragments such as "Years of Service: [Years]"
+  for (const k of Object.keys(w)) {
+    if (!/\[[^\]]*\]/.test(w[k] || '')) continue;
+    w[k] = String(w[k]).split(/\s*[|·•]\s*/).filter((part) => !/\[[^\]]*\]/.test(part)).join(' · ').replace(/\[[^\]]*\]/g, '').trim();
+  }
   for (const k of ['details', 'body', 'title'])
     if (w[k] && invented(w[k])) w[k] = String(w[k]).replace(/\b(?:19|20)\d{2}\b/g, (y) => (nums.has(y) ? y : '')).replace(/\s{2,}/g, ' ').replace(/[\s,·–-]+$/, '').trim();
   return plan;

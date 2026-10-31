@@ -37,7 +37,7 @@ Until the secret exists the server automatically runs in **test mode** (free pla
 1. **OpenAI project budget** — hard stop at OpenAI.
 2. **App monthly ceiling** `MONTHLY_BUDGET_USD` (default $25) — estimated spend across all users; when reached,
    artwork generation pauses but editing/export keep working.
-3. **Per-user daily limit** `DAILY_ART_LIMIT` (default 30 artworks / 24 h).
+3. **Per-user daily limit** `DAILY_ART_LIMIT` (currently 50 artworks per rolling 24 h).
 
 Estimates use `EST_COST_PER_IMAGE` — the 2.5 image models bill per token, so tune this from the OpenAI usage dashboard after a few real runs.
 

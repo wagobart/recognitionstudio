@@ -12,7 +12,7 @@ IMAGE_QUALITY = "high"
 PLANNER_MODEL = "gpt-4.1-mini"
 SIGNUP_MODE = "invite"              # "invite" = only ALLOWED_EMAILS can create accounts; "open" = anyone
 ALLOWED_EMAILS = "wagobart@gmail.com"
-DAILY_ART_LIMIT = "30"              # artwork generations per user per 24h
+DAILY_ART_LIMIT = "50"              # artwork generations per user per 24h
 MONTHLY_BUDGET_USD = "25"           # app-side ceiling on estimated monthly AI spend (all users)
 EST_COST_PER_IMAGE = "0.15"         # measured ~$0.12 per design (8 images + plans = $0.97 on 2026-10-31); small cushion
 EST_COST_PER_PLAN = "0.01"

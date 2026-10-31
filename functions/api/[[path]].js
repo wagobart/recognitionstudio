@@ -174,8 +174,16 @@ route('GET', '/api/projects', async ({ env, user }) => {
       let d = {};
       try { d = JSON.parse(r.data); } catch {}
       // enough to draw a true thumbnail (artwork + lettering) without opening the project
-      const preview = { output: d.output, art: d.art ? { url: d.art.url, layout: d.art.layout } : null, plan: { layout: d?.plan?.layout }, text: d.text || {}, style: d.style || {} };
-      return { id: r.id, title: r.title, output: r.output, artUrl: r.art_key ? `/api/${r.art_key}` : null, name: d?.text?.name || '', updatedAt: r.updated_at, preview };
+      const preview = { output: d.output, art: d.art ? { url: d.art.url, layout: d.art.layout, zone: d.art.zone } : null, plan: { layout: d?.plan?.layout }, text: d.text || {}, style: d.style || {} };
+      // latest artwork of each kind, so a project with both a certificate and a wood-burning
+      // version can be listed in both sections of My projects
+      const versions = {};
+      for (const a of [...(d.artHistory || []), d.art].filter(Boolean)) {
+        const o = a.output === 'pyrography' ? 'pyrography' : 'certificate';
+        versions[o] = { url: a.url, layout: a.layout, zone: a.zone, key: a.key };
+      }
+      if (d.art) versions[d.art.output === 'pyrography' ? 'pyrography' : 'certificate'] = { url: d.art.url, layout: d.art.layout, zone: d.art.zone, key: d.art.key };
+      return { id: r.id, title: r.title, output: r.output, artUrl: r.art_key ? `/api/${r.art_key}` : null, name: d?.text?.name || '', updatedAt: r.updated_at, preview, versions };
     }),
   });
 });

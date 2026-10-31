@@ -367,9 +367,7 @@ function syncArtSection() {
     b.setAttribute('aria-label', `Design ${i + 1}`);
     b.innerHTML = `<img src="${a.url}" alt="" loading="lazy"><span>${i + 1}${a.output === 'pyrography' ? ' · wood' : ''}</span>`;
     b.addEventListener('click', () => {
-      p.art = a;
-      p.output = a.output || p.output;
-      if (p.output === 'pyrography') Object.assign(p.style, { headColor: BURN, textColor: BURN });
+      useArtVersion(p, a);
       syncLettering(); syncArtSection(); updateSummaries(); render(); markDirty();
     });
     v.appendChild(b);
@@ -449,11 +447,7 @@ async function generateArt({ tweak = '', layout, output, seed } = {}) {
     p.art = art;
     p.artHistory.push(art);
     if (p.artHistory.length > 24) p.artHistory.shift();
-    if (targetOutput !== p.output) {
-      p.output = targetOutput;
-      if (targetOutput === 'pyrography') Object.assign(p.style, { headColor: BURN, textColor: BURN });
-      else if (p.style.headColor === BURN) Object.assign(p.style, { headColor: COLORS[1][0], textColor: COLORS[0][0] });
-    }
+    if (targetOutput !== p.output) setOutputColors(p, targetOutput);
     state.pendingLayout = null;
     $('#tweakInput').value = '';
     stageOverlay(null);
@@ -511,6 +505,24 @@ async function resumePendingArt() {
     syncLettering(); syncArtSection(); updateSummaries(); render(); markDirty();
     toast('Recovered the artwork that finished while you were away ✓');
   }
+}
+
+// Switching between the color certificate and the wood-burning pattern: wood-burning lettering is
+// always burn tone, and the certificate's own colors are remembered so switching back restores them.
+function setOutputColors(p, output) {
+  if (output === p.output) return;
+  if (output === 'pyrography') {
+    if (p.style.headColor !== BURN) Object.assign(p.style, { certHead: p.style.headColor, certText: p.style.textColor });
+    Object.assign(p.style, { headColor: BURN, textColor: BURN });
+  } else if (p.style.headColor === BURN) {
+    Object.assign(p.style, { headColor: p.style.certHead || COLORS[1][0], textColor: p.style.certText || COLORS[0][0] });
+  }
+  p.output = output;
+}
+
+function useArtVersion(p, a) {
+  setOutputColors(p, a.output === 'pyrography' ? 'pyrography' : 'certificate');
+  p.art = a;
 }
 
 async function refreshUsage() {
@@ -845,45 +857,73 @@ async function openProjects() {
       grid.innerHTML = '<p class="empty">No saved projects yet. Your designs save automatically as you work.</p>';
       return;
     }
-    for (const pr of projects) {
-      const card = document.createElement('div');
-      card.className = 'proj';
-      card.innerHTML = `<button class="proj-open" type="button"><div class="proj-thumb"></div><div class="proj-info"><b></b><small></small></div></button>
-        <span class="proj-tag">${pr.output === 'pyrography' ? 'Wood-burning' : 'Certificate'}</span>
-        <button class="proj-menu" type="button" aria-label="More actions">⋯</button>`;
-      const thumb = card.querySelector('.proj-thumb');
-      if (pr.preview?.style?.lettering) {
-        loadStyle(pr.preview.style.lettering).then(() => { thumb.innerHTML = svgMarkup(pr.preview, { interactive: false }); });
-      } else if (pr.artUrl) thumb.style.backgroundImage = `url("${pr.artUrl}")`;
-      card.querySelector('b').textContent = pr.name || pr.title;
-      const award = pr.preview?.text?.title || pr.title;
-      card.querySelector('b').textContent = pr.name || award;
-      card.querySelector('small').textContent = (pr.name ? award + ' · ' : '') + timeAgo(pr.updatedAt);
-      card.querySelector('.proj-open').addEventListener('click', () => openProject(pr.id));
-      card.querySelector('.proj-menu').addEventListener('click', (e) => {
-        e.stopPropagation();
-        $$('.proj-actions').forEach((m) => m.remove());
-        const m = document.createElement('div');
-        m.className = 'proj-actions';
-        m.innerHTML = `<button type="button" data-a="open">Open</button><button type="button" data-a="dup">Duplicate</button><button type="button" class="danger" data-a="del">Delete</button>`;
-        m.addEventListener('click', async (ev) => {
-          const a = ev.target.dataset.a;
-          m.remove();
-          if (a === 'open') openProject(pr.id);
-          if (a === 'dup') duplicateProject(pr.id);
-          if (a === 'del' && confirm(`Delete “${pr.name || pr.title}”? This can’t be undone.`)) {
-            await api(`/api/projects/${pr.id}`, { method: 'DELETE' });
-            if (state.project?.id === pr.id) newDesign();
-            openProjects();
-          }
-        });
-        card.appendChild(m);
-      });
-      grid.appendChild(card);
+    const SECTIONS = [
+      { output: 'pyrography', label: 'Wood-burning patterns', empty: 'No wood-burning patterns yet. Choose “Wood-burning pattern” when you start a design, or open a certificate and tap “Make a wood-burning pattern version”.' },
+      { output: 'certificate', label: 'Color certificates', empty: 'No color certificates yet.' },
+    ];
+    // a project shows in every section it has artwork for; one with no artwork yet shows under its current type
+    const inSection = (pr, o) => (pr.versions && pr.versions[o]) || (!pr.versions?.certificate && !pr.versions?.pyrography && (pr.output || 'certificate') === o);
+    const counts = Object.fromEntries(SECTIONS.map((s) => [s.output, projects.filter((pr) => inSection(pr, s.output)).length]));
+    // the section holding the most recently edited design opens first
+    const order = projects[0].output === 'pyrography' ? SECTIONS : [SECTIONS[1], SECTIONS[0]];
+    for (const sec of order) {
+      const box = document.createElement('details');
+      box.className = 'proj-sec';
+      box.dataset.output = sec.output;
+      box.open = true;
+      box.innerHTML = `<summary><span class="proj-sec-ico ${sec.output === 'pyrography' ? 'pick-wood' : 'pick-cert'}" aria-hidden="true"></span><b>${sec.label}</b><span class="proj-count">${counts[sec.output]}</span></summary><div class="proj-grid"></div>`;
+      const g = box.querySelector('.proj-grid');
+      if (!counts[sec.output]) g.innerHTML = `<p class="empty">${sec.empty}</p>`;
+      for (const pr of projects.filter((x) => inSection(x, sec.output))) g.appendChild(projectCard(pr, sec.output));
+      grid.appendChild(box);
     }
   } catch (e) {
     grid.innerHTML = `<p class="empty">Couldn’t load projects: ${e.message}</p>`;
   }
+}
+function projectCard(pr, output) {
+  const card = document.createElement('div');
+  card.className = 'proj';
+  const other = output === 'pyrography' ? 'certificate' : 'pyrography';
+  const both = pr.versions?.[other];
+  card.innerHTML = `<button class="proj-open" type="button"><div class="proj-thumb"></div><div class="proj-info"><b></b><small></small></div></button>
+    ${both ? `<span class="proj-tag">${other === 'pyrography' ? '+ Wood-burning' : '+ Certificate'}</span>` : ''}
+    <button class="proj-menu" type="button" aria-label="More actions">⋯</button>`;
+  // thumbnail: this section's version of the artwork with the project's lettering
+  const thumb = card.querySelector('.proj-thumb');
+  const v = pr.versions?.[output];
+  if (pr.preview?.style?.lettering) {
+    const prev = { ...pr.preview, output, art: v ? { url: v.url, layout: v.layout, zone: v.zone } : pr.preview.art, style: { ...pr.preview.style } };
+    if (output === 'pyrography') Object.assign(prev.style, { headColor: BURN, textColor: BURN });
+    else if (prev.style.headColor === BURN) Object.assign(prev.style, { headColor: prev.style.certHead || COLORS[1][0], textColor: prev.style.certText || COLORS[0][0], outline: false });
+    loadStyle(prev.style.lettering).then(() => { thumb.innerHTML = svgMarkup(prev, { interactive: false }); });
+  } else if (v?.url || pr.artUrl) thumb.style.backgroundImage = `url("${v?.url || pr.artUrl}")`;
+  const award = pr.preview?.text?.title || pr.title;
+  card.querySelector('b').textContent = pr.name || award;
+  card.querySelector('small').textContent = (pr.name ? award + ' · ' : '') + timeAgo(pr.updatedAt);
+  const open = () => openProject(pr.id, { output });
+  card.querySelector('.proj-open').addEventListener('click', open);
+  card.querySelector('.proj-menu').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $$('.proj-actions').forEach((m) => m.remove());
+    const m = document.createElement('div');
+    m.className = 'proj-actions';
+    m.innerHTML = `<button type="button" data-a="open">Open</button><button type="button" data-a="dup">Duplicate</button><button type="button" class="danger" data-a="del">Delete</button>`;
+    m.addEventListener('click', async (ev) => {
+      const a = ev.target.dataset.a;
+      m.remove();
+      if (a === 'open') open();
+      if (a === 'dup') duplicateProject(pr.id);
+      const warn = both ? `\n\nThis also deletes its ${other === 'pyrography' ? 'wood-burning pattern' : 'color certificate'} version.` : '';
+      if (a === 'del' && confirm(`Delete “${pr.name || pr.title}”? This can’t be undone.${warn}`)) {
+        await api(`/api/projects/${pr.id}`, { method: 'DELETE' });
+        if (state.project?.id === pr.id) newDesign();
+        openProjects();
+      }
+    });
+    card.appendChild(m);
+  });
+  return card;
 }
 document.addEventListener('click', (e) => { if (!e.target.closest('.proj-actions, .proj-menu')) $$('.proj-actions').forEach((m) => m.remove()); });
 
@@ -892,10 +932,16 @@ function migrate(p) {
   return { ...b, ...p, text: { ...b.text, ...(p.text || {}) }, style: { ...b.style, ...(p.style || {}) }, plan: { ...b.plan, ...(p.plan || {}) }, artHistory: p.artHistory || (p.art ? [p.art] : []) };
 }
 
-async function openProject(id, { quiet = false } = {}) {
+async function openProject(id, { quiet = false, output } = {}) {
   try {
     const { project } = await api(`/api/projects/${id}`);
-    loadIntoEditor(migrate(project));
+    const p = migrate(project);
+    // opened from a section: show that section's version (latest artwork of that kind)
+    if (output && p.art && (p.art.output || 'certificate') !== output) {
+      const v = [...p.artHistory].reverse().find((a) => (a.output || 'certificate') === output);
+      if (v) useArtVersion(p, v);
+    }
+    loadIntoEditor(p);
     closeSheet();
     setSaveState('', '<b>Saved</b> to your account');
     if (!quiet) toast('Opened “' + (project.text?.name || project.title) + '”');

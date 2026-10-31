@@ -28,6 +28,8 @@ font/color/size/position changes never call the AI and never cost money.
 - `public/js/zone.js` — `detectZone(url, layout)`: measures the artwork's calm/empty area (edge-density grid, shrinks a nominal rect until edges are calm). Stored as `art.zone`; `layout.zoneFor` uses it over the nominal ZONE. Computed on new art, recovered art, and on opening older projects.
 - `public/js/render.js` — SVG preview, PNG (canvas) and PDF (pdf-lib) all draw from `computeLayout()`. PDF: artwork fit on Letter/A4/11×17 with 0.25" margin; optional mirrored 2nd page for pyrography transfer; outline lettering via PDF text render mode.
 - `public/js/app.js` — UI state, editor, library, export, projects, auth, artwork recovery.
+  My projects is split into **Wood-burning patterns** and **Color certificates** sections (`projectCard`). `GET /api/projects` returns `versions{certificate,pyrography}` = latest artwork of each kind from `artHistory`; a project with both is listed in both sections (tag "+ Certificate" / "+ Wood-burning"), and opening it from a section shows that section's version (`openProject(id,{output})`). Delete removes the whole project, both versions (confirm says so).
+  Switching output always goes through `setOutputColors`/`useArtVersion`: pyrography forces burn tone and stashes the certificate colors in `style.certHead/certText`, restored when switching back.
 - `scripts/build-prompts.mjs` → `public/data/prompts.json` (1,277 ideas; fields id,c,o,t,p,k).
 - `tests/e2e.py` — Playwright suite (desktop + iPhone emulation).
 
@@ -38,7 +40,7 @@ TTFs are Google Fonts (OFL), static instances, subset to Latin, **GSUB removed**
 If you add a font: instance → pyftsubset → delete GSUB → add to FONT_FILES → verify with the e2e PDF text check.
 
 ## Project JSON (stored in D1 `projects.data`)
-`{ id 'p_…', v, title, output, idea, createdAt, updatedAt, plan{layout,artPrompt,designNotes,source}, art{key,url,contentType,layout,output,test?}, artHistory[], text{name,title,body,date,kicker,presented,details,sig1Name,sig1Role,sig2Name,sig2Role}, style{lettering,headColor,textColor,scale,offsetX,offsetY,widthScale,outline} }`
+`{ id 'p_…', v, title, output, idea, createdAt, updatedAt, plan{layout,artPrompt,designNotes,source}, art{key,url,contentType,layout,output,test?}, artHistory[], text{name,title,body,date,kicker,presented,details,sig1Name,sig1Role,sig2Name,sig2Role}, style{lettering,headColor,textColor,certHead?,certText?,scale,offsetX,offsetY,widthScale,outline} }`
 A signature column renders if name OR role is set (role-only = blank line to sign by hand). Pyrography forces burn tone `#1f1610`.
 
 ## Export UX rules

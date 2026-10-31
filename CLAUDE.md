@@ -10,7 +10,7 @@ font/color/size/position changes never call the AI and never cost money.
 ## Flow
 1. Start screen: idea textarea + idea library + output choice (certificate | pyrography) → "Design it".
 2. `POST /api/plan` → design plan (layout, artPrompt, lettering style, colors, starter wording, designNotes).
-   Text model `PLANNER_MODEL` with strict JSON schema; on any failure or budget limit → `localPlan()` (keyword heuristics). Planner never invents names/dates.
+   Text model `PLANNER_MODEL` with strict JSON schema; on any failure or budget limit → `localPlan()` (keyword heuristics). `dropInventedFacts()` strips numbers not in the user's idea and `[placeholder]` fragments.
 3. Editor opens immediately with the plan's wording over blank paper; user can type while art paints.
    `applyPlan` never overwrites fields the user already typed.
 4. `POST /api/art` → `buildImagePrompt()` wraps artPrompt with composition rules for the layout + strict no-text rule;
@@ -25,6 +25,7 @@ font/color/size/position changes never call the AI and never cost money.
 - `functions/_lib/mockart.js` — test-mode SVG artwork, tagged "TEST ARTWORK — not AI". Mock tweak `SIMULATE_FAILURE` returns 502 (test hook).
 - `public/js/fonts.js` — 8 lettering STYLES (pairings) over 15 local TTFs. Size multipliers `k` equalize visual size.
 - `public/js/layout.js` — **the one layout engine**: ZONES per layout in a 1500×1000 design space; stack (kicker, title ≤2 lines, lead-in, name 1 line shrink-to-fit, ornament rule, body ≤5 lines, details) + bottom row (up to 2 signature columns + date). Auto-shrinks to fit. User offsets: `style.offsetX/offsetY/widthScale/scale`.
+- `public/js/zone.js` — `detectZone(url, layout)`: measures the artwork's calm/empty area (edge-density grid, shrinks a nominal rect until edges are calm). Stored as `art.zone`; `layout.zoneFor` uses it over the nominal ZONE. Computed on new art, recovered art, and on opening older projects.
 - `public/js/render.js` — SVG preview, PNG (canvas) and PDF (pdf-lib) all draw from `computeLayout()`. PDF: artwork fit on Letter/A4/11×17 with 0.25" margin; optional mirrored 2nd page for pyrography transfer; outline lettering via PDF text render mode.
 - `public/js/app.js` — UI state, editor, library, export, projects, auth, artwork recovery.
 - `scripts/build-prompts.mjs` → `public/data/prompts.json` (1,277 ideas; fields id,c,o,t,p,k).
@@ -50,4 +51,4 @@ A signature column renders if name OR role is set (role-only = blank line to sig
 - Server errors never lose work: localStorage draft is restored if newer than cloud copy.
 
 ## Known gaps (as of 2026-10-31)
-No password reset (no email provider); no admin UI; orphaned R2 images are never cleaned up; pyrography page sizes are fit-to-paper (no actual-size tiling); real-AI quality and real-iPhone behaviour not yet verified — see docs/TESTING.md.
+No password reset (no email provider); no admin UI; orphaned R2 images are never cleaned up; pyrography page sizes are fit-to-paper (no actual-size tiling); real-iPhone behaviour not yet verified; planner can produce awkward lead-in lines — see docs/TESTING.md.

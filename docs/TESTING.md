@@ -49,7 +49,7 @@ Driven in the Claude desktop app's built-in browser (Chromium, desktop window �
 4. Planner sometimes writes awkward lead-ins (e.g. "Forever in our hearts, remember") — editable by the user; not fixed automatically.
 
 ## NOT yet verified — required before calling it production-ready
-- **Real AI quality**: planner wording/layout choice and image model actually leaving a clean, text-free lettering area for each composition. Needs the key + deployed site.
+- Broader real-AI coverage (only 7 subjects tried so far; layouts art-left/art-right/crest not yet produced by the planner).
 - **Real iPhone Safari**: share sheet → Save to Files, in-app PDF preview (iframe PDF rendering differs on iOS), keyboard + pinned preview behaviour, safe areas. Emulation cannot confirm these.
 - Real print test of a Letter PDF and a mirrored transfer page on wood.
 - Password reset, account deletion, abuse controls beyond invite-only sign-up.

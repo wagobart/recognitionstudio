@@ -30,7 +30,7 @@ Also tested: dropped connection mid-generation → artwork recovered automatical
 8. Test-mode planner titled thank-you/veteran pieces "Certificate of Completion".
 
 ## Live test with real AI — 2026-10-31 (recognitionstudio.pages.dev)
-Driven in the Claude desktop app's built-in browser (Chromium, desktop window — **not** an iPhone), account wagobart@gmail.com. 8 artwork generations (~$2 estimated). Saved in My projects:
+Driven in the Claude desktop app's built-in browser (Chromium, desktop window — **not** an iPhone), account wagobart@gmail.com. 8 artwork generations ($0.97 actual per OpenAI dashboard ≈ $0.12 per design incl. planning). Saved in My projects:
 
 | Project | Output | Result |
 |---|---|---|

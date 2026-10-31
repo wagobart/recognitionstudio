@@ -4,7 +4,7 @@ import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js';
 import { CHIPS, loadLibrary, searchLibrary } from './library.js';
 import { detectZone } from './zone.js';
 import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js';
-import { zoneFor } from './layout.js';
+import { zoneFor, plainOn } from './layout.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -206,7 +206,9 @@ function updateSummaries() {
   $('#wordingSummary').textContent = [p.text.name || 'Add the recipient’s name', p.text.title].filter(Boolean).join(' · ');
   const st = STYLES[p.style.lettering];
   $('#letteringSummary').textContent = `${st.label} lettering · ${Math.round(p.style.scale * 100)}%`;
-  $('#artSummary').textContent = p.art ? `${LAYOUT_LABELS[p.art.layout] || 'Custom'} · ${p.output === 'pyrography' ? 'wood-burning pattern' : 'color certificate'}` : 'Being created…';
+  $('#artSummary').textContent = plainOn(p)
+    ? `No artwork · ${p.output === 'pyrography' ? 'wood-burning pattern' : 'certificate'}`
+    : p.art ? `${LAYOUT_LABELS[p.art.layout] || 'Custom'} · ${p.output === 'pyrography' ? 'wood-burning pattern' : 'color certificate'}` : 'Being created…';
 }
 
 function autosize(el) {
@@ -371,6 +373,16 @@ function syncArtSection() {
   $('#switchOutputBtn').disabled = busy;
   $('#redrawBtn').textContent = state.pendingLayout ? 'Redraw with new composition' : 'Redraw with change';
   $('#switchOutputBtn').textContent = p.output === 'pyrography' ? 'Make the certificate version (same design)' : 'Make the wood-burning version (same design)';
+  const plain = plainOn(p);
+  $('#plainControls').hidden = !plain;
+  $('#addArtBtn').disabled = busy;
+  $('#paperRow').hidden = p.output === 'pyrography'; // wood-burning is always plain white
+  $$('#paperChips .chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.paper === (p.style.paper === 'white' ? 'white' : 'cream'))));
+  $('#borderToggle').checked = p.style.border !== false;
+  // AI-artwork controls only make sense when there is artwork
+  for (const el of [$('#tweakInput').closest('.fld'), $('#redrawBtn').closest('.btn-row'), $('#layoutChips').closest('.layout-row'), $('#artPromptInput').closest('details'), $('#designNotes')])
+    el.hidden = plain;
+  $('#noArtBtn').hidden = plain || !p.art || busy;
   // versions
   const v = $('#versions');
   v.hidden = p.artHistory.length < 2;
@@ -406,6 +418,20 @@ $('#redrawBtn').addEventListener('click', () => {
 $('#variationBtn').addEventListener('click', () => generateArt({ layout: state.pendingLayout || undefined, seed: String(Date.now()) }));
 $('#switchOutputBtn').addEventListener('click', () => convertOutput(state.project.output === 'pyrography' ? 'certificate' : 'pyrography'));
 
+// ---- no artwork: just the photo and words on clean paper ----
+function afterArtChange() { syncLettering(); syncArtSection(); syncPhoto(); updateSummaries(); render(); markDirty(); }
+$('#noArtBtn').addEventListener('click', () => {
+  const p = state.project;
+  p.plainBg = true;
+  p.art = null; // earlier artwork stays under versions
+  setArtStatus(null);
+  afterArtChange();
+  toast('No artwork — just your photo and words. Your artwork is still under versions.', { ms: 4200 });
+});
+$('#addArtBtn').addEventListener('click', () => generateArt());
+$$('#paperChips .chip').forEach((b) => b.addEventListener('click', () => { state.project.style.paper = b.dataset.paper; afterArtChange(); }));
+$('#borderToggle').addEventListener('change', (e) => { state.project.style.border = e.target.checked; afterArtChange(); });
+
 // The two versions of a design are always the identical artwork — never a fresh AI drawing.
 // Certificate → wood-burning: graphite conversion of the same image. Wood-burning → certificate: the
 // certificate it was made from, or (if it started as a pattern) the same drawing in sepia on parchment.
@@ -414,6 +440,13 @@ async function convertOutput(to) {
   const p = state.project;
   if (!p || state.busyArt) return;
   const src = p.art;
+  if (!src && p.plainBg) {
+    setOutputColors(p, to);
+    adjustPhotoFor(p, to);
+    afterArtChange();
+    toast(to === 'pyrography' ? 'Wood-burning version ✓ Same design.' : 'Certificate version ✓ Same design.');
+    return;
+  }
   if (!src) return generateArt({ output: to }); // nothing to convert yet
   const partner = [...p.artHistory].reverse().find((a) => sameOutput(a, to) && (a.derivedFrom === src.key || src.derivedFrom === a.key));
   if (partner) {
@@ -519,6 +552,7 @@ async function generateArt({ tweak = '', layout, output, seed, withPhoto } = {})
     }
     await fitZone(art);
     p.art = art;
+    p.plainBg = false;
     p.artHistory.push(art);
     if (p.artHistory.length > 24) p.artHistory.shift();
     if (targetOutput !== p.output) setOutputColors(p, targetOutput);
@@ -573,6 +607,7 @@ async function resumePendingArt() {
   const p = state.project;
   if (art && !p.artHistory.some((a) => a.key === art.key)) {
     p.art = art;
+    p.plainBg = false;
     p.artHistory.push(art);
     p.output = art.output || p.output;
     stageOverlay(null); setArtStatus(null);
@@ -597,6 +632,7 @@ function setOutputColors(p, output) {
 function useArtVersion(p, a) {
   setOutputColors(p, a.output === 'pyrography' ? 'pyrography' : 'certificate');
   p.art = a;
+  p.plainBg = false;
 }
 
 async function refreshUsage() {
@@ -662,6 +698,7 @@ async function attachPhoto(prep, { replace = false } = {}) {
       mode: p.output === 'pyrography' ? 'graphite' : 'color',
       place: defaultPlace(p),
       ...(logo ? { shape: 'full', fade: 0 } : {}),
+      ...(p.plainBg && !replace ? { size: 1.5 } : {}),
       ...(keep || {}),
       key, url, w: prep.w, h: prep.h, type: prep.type,
       zoom: 1, fx: PHOTO_DEFAULTS.fx, fy: PHOTO_DEFAULTS.fy,
@@ -798,6 +835,8 @@ function clearStartPhoto(revoke = true) {
   if (revoke && state.pendingPhoto) URL.revokeObjectURL(state.pendingPhoto.localUrl);
   state.pendingPhoto = null;
   $('#startPhotoNote').hidden = true;
+  $('#noArtRow').hidden = true;
+  $('#noArtToggle').checked = false;
   $('#startPhotoLabel').textContent = 'Add a photo';
 }
 $('#startPhotoInput').addEventListener('change', async (e) => {
@@ -811,6 +850,7 @@ $('#startPhotoInput').addEventListener('change', async (e) => {
     $('#startPhotoThumb').src = prep.localUrl;
     $('#startPhotoNote').hidden = false;
     $('#startPhotoLabel').textContent = 'Change photo';
+    $('#noArtRow').hidden = false;
   } catch (err) {
     toast(err.message, { error: true });
   }
@@ -845,6 +885,8 @@ async function startDesign() {
   fillForm();
   render();
   const pend = state.pendingPhoto;
+  const noArt = !!pend && $('#noArtToggle').checked;
+  p.plainBg = noArt;
   if (pend) clearStartPhoto(false);
   stageOverlay('busy', progressHtml(pend ? 0 : 1, !!pend));
   // the photo goes up first so the planner can look at it
@@ -860,6 +902,7 @@ async function startDesign() {
       $('#startPhotoThumb').src = pend.localUrl;
       $('#startPhotoNote').hidden = false;
       $('#startPhotoLabel').textContent = 'Change photo';
+    $('#noArtRow').hidden = false;
       toast('The photo couldn’t be uploaded. Check your connection and tap Design it again.', { error: true, ms: 5000 });
       return;
     }
@@ -875,6 +918,14 @@ async function startDesign() {
     toast('Couldn’t plan the design — using a standard layout.', { error: true });
   }
   markDirty();
+  if (p.plainBg) {
+    // just the photo and words: nothing to paint
+    stageOverlay(null);
+    setArtStatus(null);
+    afterArtChange();
+    toast('Ready ✓ Your photo and words — add AI artwork any time under Artwork.', { ms: 4200 });
+    return;
+  }
   await generateArt();
 }
 
@@ -1037,7 +1088,7 @@ $('#exportBtn').addEventListener('click', openExport);
 function openExport() {
   const p = state.project;
   if (!p) return;
-  if (!p.art && !confirm('The artwork isn’t ready yet. Export the lettering only?')) return;
+  if (!p.art && !p.plainBg && !confirm('The artwork isn’t ready yet. Export the lettering only?')) return;
   openSheet('exportSheet');
   $('#mirrorRow').hidden = p.output !== 'pyrography';
   $('#mirrorToggle').checked = state.exp.mirror;
@@ -1273,7 +1324,7 @@ function loadIntoEditor(p) {
   setView('editor');
   stageOverlay(null);
   setArtStatus(null);
-  if (!p.art) setArtStatus('err', `<span>This design has no artwork yet.</span><button class="ghost-btn small" id="retryArt3">Create artwork</button>`), $('#retryArt3')?.addEventListener('click', () => generateArt());
+  if (!p.art && !p.plainBg) setArtStatus('err', `<span>This design has no artwork yet.</span><button class="ghost-btn small" id="retryArt3">Create artwork</button>`), $('#retryArt3')?.addEventListener('click', () => generateArt());
   fillForm();
   render();
   // older designs: measure the empty area once

@@ -231,7 +231,7 @@ route('GET', '/api/projects', async ({ env, user }) => {
       let d = {};
       try { d = JSON.parse(r.data); } catch {}
       // enough to draw a true thumbnail (artwork + lettering) without opening the project
-      const preview = { output: d.output, art: d.art ? { url: d.art.url, layout: d.art.layout, zone: d.art.zone } : null, plan: { layout: d?.plan?.layout }, text: d.text || {}, style: d.style || {}, photo: d.photo || null };
+      const preview = { output: d.output, art: d.art ? { url: d.art.url, layout: d.art.layout, zone: d.art.zone } : null, plan: { layout: d?.plan?.layout }, text: d.text || {}, style: d.style || {}, photo: d.photo || null, plainBg: !!d.plainBg };
       // latest artwork of each kind, so a project with both a certificate and a wood-burning
       // version can be listed in both sections of My projects
       const versions = {};

@@ -1,5 +1,5 @@
 // Three renderers fed by the same layout: live SVG preview, PNG (canvas) and PDF (pdf-lib).
-import { computeLayout, DESIGN_W, DESIGN_H } from './layout.js';
+import { computeLayout, DESIGN_W, DESIGN_H, plainOn, plainPaper } from './layout.js';
 import { cssFamily, fontBuffer, loadStyle } from './fonts.js';
 import { photoPngBytes } from './photo.js';
 
@@ -24,8 +24,12 @@ export function svgMarkup(project, { interactive = true, artHref } = {}) {
     : project._photoHref
       ? `<image data-field="photo" href="${esc(project._photoHref)}" x="${photo.x.toFixed(1)}" y="${photo.y.toFixed(1)}" width="${photo.w.toFixed(1)}" height="${photo.h.toFixed(1)}" preserveAspectRatio="xMidYMid meet"/>`
       : `<rect data-field="photo" x="${photo.x}" y="${photo.y}" width="${photo.w}" height="${photo.h}" rx="${Math.min(photo.w, photo.h) / 2}" fill="rgba(120,120,120,0.12)"/>`;
+  const pp = plainOn(project) ? plainPaper(project) : null;
   const art = href
     ? `<image href="${esc(href)}" x="0" y="0" width="${DESIGN_W}" height="${DESIGN_H}" preserveAspectRatio="xMidYMid slice"/>`
+    : pp
+      ? `<rect width="${DESIGN_W}" height="${DESIGN_H}" fill="${pp.fill}"/>` +
+        (pp.border ? pp.rules.map((r) => `<rect x="${r.inset}" y="${r.inset}" width="${DESIGN_W - 2 * r.inset}" height="${DESIGN_H - 2 * r.inset}" fill="none" stroke="${pp.color}" stroke-width="${r.width}"/>`).join('') : '')
     : `<rect width="${DESIGN_W}" height="${DESIGN_H}" fill="${project.output === 'pyrography' ? '#fff' : '#f7f2e8'}"/>
        <rect x="30" y="30" width="${DESIGN_W - 60}" height="${DESIGN_H - 60}" fill="none" stroke="#d9cdb4" stroke-width="3" stroke-dasharray="14 10"/>`;
   const texts = items
@@ -92,6 +96,15 @@ export async function renderPng(project, width = 3000) {
   g.fillStyle = '#fff';
   g.fillRect(0, 0, c.width, c.height);
   const ras = await artRaster(project, width);
+  if (!ras && plainOn(project)) {
+    const pp = plainPaper(project);
+    g.fillStyle = pp.fill;
+    g.fillRect(0, 0, c.width, c.height);
+    if (pp.border) {
+      g.strokeStyle = pp.color;
+      for (const r of pp.rules) { g.lineWidth = r.width * k; g.strokeRect(r.inset * k, r.inset * k, (DESIGN_W - 2 * r.inset) * k, (DESIGN_H - 2 * r.inset) * k); }
+    }
+  }
   if (ras) {
     const url = URL.createObjectURL(new Blob([ras.bytes], { type: ras.type === 'png' ? 'image/png' : 'image/jpeg' }));
     const img = await loadImage(url);
@@ -200,6 +213,15 @@ export async function renderPdf(project, { paper = 'letter', mirror = false } = 
     // design-space (top-left origin) -> PDF (bottom-left origin)
     const X = (x) => ox + x * k;
     const Y = (y) => oy + AH - y * k;
+    if (!img && plainOn(project)) {
+      const pp = plainPaper(project);
+      const [pr, pg, pb] = hexToRgb(pp.fill);
+      page.drawRectangle({ x: ox, y: oy, width: AW, height: AH, color: rgb(pr, pg, pb) });
+      if (pp.border) {
+        const [br, bg, bb] = hexToRgb(pp.color);
+        for (const r of pp.rules) page.drawRectangle({ x: X(r.inset), y: Y(DESIGN_H - r.inset), width: (DESIGN_W - 2 * r.inset) * k, height: (DESIGN_H - 2 * r.inset) * k, borderColor: rgb(br, bg, bb), borderWidth: r.width * k });
+      }
+    }
     if (pimg) {
       const fit = Math.min(photo.w / pimg.width, photo.h / pimg.height);
       const pw = pimg.width * fit, ph = pimg.height * fit;

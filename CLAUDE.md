@@ -34,7 +34,7 @@ font/color/size/position changes never call the AI and never cost money.
   My projects is split into **Wood-burning patterns** and **Color certificates** sections (`projectCard`). `GET /api/projects` returns `versions{certificate,pyrography}` = latest artwork of each kind from `artHistory`; a project with both is listed in both sections, with a line under the title "Also as a pattern" / "Also as a certificate" (deliberately not an overlay on the picture — the old "+ WOOD-BURNING" corner tag read like a wrong label), and opening it from a section shows that section's version (`openProject(id,{output})`). Delete removes the whole project, both versions (confirm says so).
   Switching output always goes through `setOutputColors`/`useArtVersion`: pyrography forces burn tone and stashes the certificate colors in `style.certHead/certText`, restored when switching back.
 - `scripts/build-prompts.mjs` → `public/data/prompts.json` (1,277 ideas; fields id,c,o,t,p,k).
-- `tests/e2e.py` — Playwright suite (desktop + iPhone emulation). `tests/e2e_photos.py` — photo feature; `tests/e2e_photo_start.py` — starting from only a photo (fixtures in `tests/fixtures/`, public-domain/CC0).
+- `tests/e2e.py` — Playwright suite (desktop + iPhone emulation). `tests/e2e_photos.py` — photo feature; `tests/e2e_photo_start.py` — starting from only a photo; `tests/e2e_no_artwork.py` — photo + words, no artwork (fixtures in `tests/fixtures/`, public-domain/CC0).
 
 ## Certificate ↔ wood-burning versions are the identical artwork (no AI)
 "Make the wood-burning / certificate version (same design)" (`convertOutput` in app.js) never calls the image model:
@@ -43,6 +43,11 @@ font/color/size/position changes never call the AI and never cost money.
 - Wood-burning → certificate (design that started as a pattern): same drawing mapped to sepia ink `#3a2616` on parchment `#f4ead5`. Full color would need the AI (drift), so it isn't offered.
 - Result is uploaded as JPEG to `POST /api/art/derived?from=&output=&layout=` (no cost, no usage log) and gets `derivedFrom`, plus the source's `zone` and `fromPhoto`, so lettering sits exactly where it did. A color photo layer switches to graphite for the pattern (`wasColor`) and back.
 Older projects whose two versions were AI-drawn separately (before 2026-10-31 evening) still differ; re-run the button from the certificate to get an exact pattern.
+
+## Designs with no artwork (photo + words)
+`project.plainBg = true` with `art = null` (`layout.plainOn(p)`): clean paper + optional app-drawn double-rule border (`plainPaper`: cream `#faf6ec` or white via `style.paper`, wood-burning always white; `style.border` default on, drawn in the heading color, insets 40/58) — rendered by SVG, PNG and PDF. Lettering area `PLAIN_ZONE` {120,105,1260,790}; a full-size photo stops inside the border.
+- Start screen: once a photo is chosen, checkbox **"No artwork — just my photo and words"** (`#noArtToggle`). `startDesign` still plans (wording) but never calls `/api/art`; photo defaults to size 1.5.
+- Artwork section in plain mode shows Paper / Simple border / **Add AI artwork** and hides the AI redraw controls. With artwork, **"Use no artwork"** sets plainBg and clears `art` (history kept; tapping a version, or any new artwork, clears plainBg). Version switching on a plain design just flips output (no art to convert). Export skips the "artwork isn't ready" prompt; opening skips the "no artwork yet" warning.
 
 ## Photos (added 2026-10-31)
 User photos are a **third layer** (artwork · photo · lettering), except in "Paint into art" mode. Three modes per project (`project.photo.mode`):
@@ -60,7 +65,7 @@ TTFs are Google Fonts (OFL), static instances, subset to Latin, **GSUB removed**
 If you add a font: instance → pyftsubset → delete GSUB → add to FONT_FILES → verify with the e2e PDF text check.
 
 ## Project JSON (stored in D1 `projects.data`)
-`{ id 'p_…', v, title, output, idea, createdAt, updatedAt, plan{layout,artPrompt,designNotes,source}, art{key,url,contentType,layout,output,test?}, artHistory[], text{name,title,body,date,kicker,presented,details,sig1Name,sig1Role,sig2Name,sig2Role}, style{lettering,headColor,textColor,certHead?,certText?,scale,offsetX,offsetY,widthScale,outline}, photo?{key,url,w,h,type,mode,shape,place,size,fade,shading,detail,zoom,fx,fy,subject?} }` — art may also carry `fromPhoto`.
+`{ id 'p_…', v, title, output, idea, plainBg?, createdAt, updatedAt, plan{layout,artPrompt,designNotes,source}, art{key,url,contentType,layout,output,test?}, artHistory[], text{name,title,body,date,kicker,presented,details,sig1Name,sig1Role,sig2Name,sig2Role}, style{lettering,headColor,textColor,certHead?,certText?,paper?,border?,scale,offsetX,offsetY,widthScale,outline}, photo?{key,url,w,h,type,mode,shape,place,size,fade,shading,detail,zoom,fx,fy,subject?} }` — art may also carry `fromPhoto`.
 A signature column renders if name OR role is set (role-only = blank line to sign by hand). Pyrography forces burn tone `#1f1610`.
 
 ## Export UX rules

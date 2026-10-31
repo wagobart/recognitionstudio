@@ -54,6 +54,7 @@
         </label>
       </div>
       <p class="start-photo" id="startPhotoNote" hidden><img id="startPhotoThumb" alt=""><span>Photo added — you’ll choose how it appears after designing.</span><button class="text-btn" id="startPhotoRemove" type="button">Remove</button></p>
+      <label class="toggle start-noart" id="noArtRow" hidden><input type="checkbox" id="noArtToggle"><span>No artwork — just my photo and words <small>Free and instant. You can add AI artwork later.</small></span></label>
       <fieldset class="output-pick">
         <legend>Make it as a…</legend>
         <label class="pick"><input type="radio" name="output" value="certificate" checked>
@@ -165,6 +166,14 @@
         <summary><span class="sec-ico sec-ico-art" aria-hidden="true"></span><span><b>Artwork</b><small id="artSummary">Redraw or adjust the design</small></span></summary>
         <div class="sec-body">
           <p class="design-notes" id="designNotes"></p>
+          <div id="plainControls" hidden>
+            <p class="design-notes">No artwork — just your photo and words on clean paper.</p>
+            <div class="layout-row" id="paperRow"><span class="row-label">Paper</span><div class="chips" id="paperChips">
+              <button type="button" class="chip" data-paper="cream">Cream</button><button type="button" class="chip" data-paper="white">White</button>
+            </div></div>
+            <label class="toggle"><input type="checkbox" id="borderToggle"><span>Simple border</span></label>
+            <button class="primary-btn wide" id="addArtBtn" type="button">Add AI artwork</button>
+          </div>
           <div class="versions" id="versions" hidden></div>
           <label class="fld"><span>Change something</span><textarea id="tweakInput" rows="2" placeholder="e.g. make the tool belt larger, add oak leaves, warmer colors"></textarea></label>
           <div class="btn-row">
@@ -173,6 +182,7 @@
           </div>
           <div class="layout-row"><span class="row-label">Composition</span><div class="chips" id="layoutChips"></div></div>
           <button class="ghost-btn wide" id="switchOutputBtn" type="button"></button>
+          <button class="text-btn" id="noArtBtn" type="button">Use no artwork (just photo and words)</button>
           <details class="sub">
             <summary>Full artwork description <small>advanced</small></summary>
             <textarea id="artPromptInput" rows="5"></textarea>

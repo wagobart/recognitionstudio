@@ -46,9 +46,22 @@ function wrap(text, fontKey, size, maxW, track) {
   return lines;
 }
 
+// ---- designs with no artwork: plain paper, optional app-drawn border, photo and words ----
+export const plainOn = (p) => !!(p && !p.art && p.plainBg);
+export function plainPaper(p) {
+  const pyro = p.output === 'pyrography';
+  return {
+    fill: pyro || p.style?.paper === 'white' ? '#ffffff' : '#faf6ec',
+    border: p.style?.border !== false,
+    color: p.style?.headColor || '#2a2a3a',
+    rules: [{ inset: 40, width: 6 }, { inset: 58, width: 1.8 }], // classic double rule
+  };
+}
+const PLAIN_ZONE = { x: 120, y: 105, w: 1260, h: 790 };
+
 export function zoneFor(project) {
   // measured empty area of the actual artwork wins over the nominal layout area
-  const z = project?.art?.zone || ZONES[project?.art?.layout || project?.plan?.layout] || ZONES.framed;
+  const z = project?.art?.zone || (plainOn(project) ? PLAIN_ZONE : null) || ZONES[project?.art?.layout || project?.plan?.layout] || ZONES.framed;
   const st = project.style || {};
   const ws = st.widthScale || 1;
   const w = Math.min(z.w * ws, DESIGN_W - 120);
@@ -67,7 +80,7 @@ export function zoneFor(project) {
  * Returns the photo's box and the smaller area left for the lettering.
  */
 // usable page inside the edge (the photo may grow over the artwork, but not off the paper)
-const PAGE = { x: 60, y: 50, w: DESIGN_W - 120, h: DESIGN_H - 100 };
+const PAGE_EDGE = { x: 60, y: 50, w: DESIGN_W - 120, h: DESIGN_H - 100 };
 export const PHOTO_SIZE_MAX = 2;
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -82,6 +95,8 @@ export function splitForPhoto(project, full) {
   const a = photoAspect(ph);
   const size = Math.min(PHOTO_SIZE_MAX, Math.max(0.5, ph.size || 1));
   const t = Math.max(0, (size - 1) / (PHOTO_SIZE_MAX - 1)); // 0 = inside the open area, 1 = full side
+  // on a plain design with a border, a full-size photo stops inside the border
+  const PAGE = plainOn(project) && plainPaper(project).border ? { x: 78, y: 72, w: DESIGN_W - 156, h: DESIGN_H - 144 } : PAGE_EDGE;
   const minTextW = DESIGN_W * 0.32, minTextH = DESIGN_H * 0.3;
 
   if (ph.place === 'top') {

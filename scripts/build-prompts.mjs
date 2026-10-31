@@ -516,7 +516,7 @@ const pyro = [
   ['Nurse appreciation plaque', 'a stethoscope forming a heart with roses'],
   ['Wedding anniversary plaque', 'intertwined rings, roses and a tree with a carved heart'],
   ['Memorial wood plaque', 'a dove over a sunrise with lilies'],
-  ['Pet memorial plaque', 'a dog or cat portrait outline with paw prints and a rainbow arc'],
+  ['Pet memorial plaque', 'a lifelike dog or cat portrait with paw prints and a rainbow arc'],
   ['Mountain retirement plaque', 'layered mountain peaks, pines and a winding trail'],
   ['Trucker retirement plaque', 'a semi truck on a highway with mountains'],
   ['Railroad retirement plaque', 'a steam locomotive crossing a trestle bridge'],
@@ -534,7 +534,7 @@ const pyro = [
   ['Sailor’s plaque', 'an anchor, ship’s wheel and rope border'],
   ['Pastor’s plaque', 'a church steeple, dove and open Bible'],
 ];
-for (const [t, m] of pyro) add('Wood-Burning Showpieces', 'Pyrography', t, `Wood-burning ${t.toLowerCase()} — ${m}; bold, clean outlines that burn well, with room for lettering.`, 'pyrography wood burn plaque');
+for (const [t, m] of pyro) add('Wood-Burning Showpieces', 'Pyrography', t, `Wood-burning ${t.toLowerCase()} — ${m}; lifelike graphite detail and shading that burns well, with room for lettering.`, 'pyrography wood burn plaque');
 
 mkdirSync(new URL('../public/data/', import.meta.url), { recursive: true });
 writeFileSync(new URL('../public/data/prompts.json', import.meta.url), JSON.stringify(out));

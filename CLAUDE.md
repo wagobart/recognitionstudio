@@ -14,13 +14,13 @@ font/color/size/position changes never call the AI and never cost money.
 3. Editor opens immediately with the plan's wording over blank paper; user can type while art paints.
    `applyPlan` never overwrites fields the user already typed.
 4. `POST /api/art` → `buildImagePrompt()` wraps artPrompt with composition rules for the layout + strict no-text rule;
-   pyrography adds black line-art / burnable constraints. Result stored in R2 `art/{userId}/{artId}`, served by `GET /api/art/...` (owner only).
+   pyrography asks for a photorealistic grayscale graphite drawing (tonal shading, no color, lettering area kept pure white) — changed from black line art on 2026-10-31. Result stored in R2 `art/{userId}/{artId}`, served by `GET /api/art/...` (owner only).
 5. Autosave: every change → localStorage draft immediately + debounced `PUT /api/projects/:id` (900 ms). Retries every 6 s on failure.
 
 ## Files
 - `functions/api/[[path]].js` — single router: config, auth, plan, art, art-latest (recovery), art serving, projects CRUD.
 - `functions/_lib/design.js` — LAYOUTS (5 compositions), lettering ids, planner prompt/schema, `buildImagePrompt`, `localPlan`.
-- `functions/_lib/openai.js` — image call; maps errors to friendly messages (moderation, 429, 401).
+- `functions/_lib/openai.js` — image call: `POST /v1/images/generations`, model `IMAGE_MODEL` (`gpt-image-2.5-sunburst`), 1536x1024, quality high; planner uses `POST /v1/chat/completions` with `PLANNER_MODEL` (`gpt-4.1-mini`); maps errors to friendly messages (moderation, 429, 401).
 - `functions/_lib/auth.js` — email+password (PBKDF2-SHA256 100k), session cookie `rs_session` (HttpOnly, 60 days), invite gate.
 - `functions/_lib/mockart.js` — test-mode SVG artwork, tagged "TEST ARTWORK — not AI". Mock tweak `SIMULATE_FAILURE` returns 502 (test hook).
 - `public/js/fonts.js` — 8 lettering STYLES (pairings) over 15 local TTFs. Size multipliers `k` equalize visual size.

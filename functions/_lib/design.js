@@ -34,12 +34,12 @@ export function buildImagePrompt({ artPrompt, layout, output }) {
   const L = LAYOUTS[layout] || LAYOUTS.framed;
   if (output === 'pyrography') {
     return [
-      'Black line-art pattern for pyrography (wood burning), horizontal 3:2 landscape page, pure white background.',
+      'Photorealistic graphite pencil drawing to be used as a pyrography (wood burning) reference, horizontal 3:2 landscape page, clean white paper background.',
       `Subject and motifs: ${artPrompt}.`,
       `Composition: ${L.art}.`,
-      'Style: clean, confident black outlines with closed shapes; bold main contours and finer interior detail lines; shading only with simple stippling or hatching that can be burned with a pen; no gray washes, no color, no gradients, no photo realism.',
+      'Style: highly detailed, lifelike graphite rendering with smooth tonal shading from soft light grays to deep charcoal blacks, realistic textures (fur, wood grain, metal, foliage), strong form and lighting, and crisp edges on the main subjects. Grayscale only: no color, no colored tints, no paint or ink washes. Keep the empty lettering area pure white paper with no smudges, shading or texture.',
       NO_TEXT,
-      'Front-on flat artwork filling the frame edge to edge, not a photo of a board.',
+      'Front-on flat drawing filling the frame edge to edge, not a photo of paper, a sketchbook or a board.',
     ].join(' ');
   }
   return [
@@ -112,7 +112,7 @@ export async function planWithAI(env, { idea, output }) {
       model,
       messages: [
         { role: 'system', content: PLANNER_SYSTEM },
-        { role: 'user', content: `Output type: ${output === 'pyrography' ? 'wood-burning pattern (black line art)' : 'printable color certificate'}\nIdea: ${idea}` },
+        { role: 'user', content: `Output type: ${output === 'pyrography' ? 'wood-burning pattern (photorealistic graphite drawing, grayscale)' : 'printable color certificate'}\nIdea: ${idea}` },
       ],
       response_format: { type: 'json_schema', json_schema: { name: 'design_plan', strict: true, schema: PLAN_SCHEMA } },
     }),

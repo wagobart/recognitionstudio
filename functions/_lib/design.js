@@ -87,6 +87,17 @@ Given the user's idea, plan ONE design:
 - designNotes: one friendly sentence telling the user what you designed and why.
 - projectTitle: a short title for the user's project list.`;
 
+// The model sometimes invents years/dates; keep only what the user actually wrote.
+function dropInventedFacts(plan, idea) {
+  const w = plan.wording || {};
+  const nums = new Set(String(idea).match(/\d+/g) || []);
+  const invented = (s) => (String(s).match(/\d+/g) || []).some((n) => !nums.has(n));
+  if (w.date && invented(w.date)) w.date = '';
+  for (const k of ['details', 'body', 'title'])
+    if (w[k] && invented(w[k])) w[k] = String(w[k]).replace(/\b(?:19|20)\d{2}\b/g, (y) => (nums.has(y) ? y : '')).replace(/\s{2,}/g, ' ').replace(/[\s,·–-]+$/, '').trim();
+  return plan;
+}
+
 export async function planWithAI(env, { idea, output }) {
   const model = env.PLANNER_MODEL || 'gpt-4.1-mini';
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -104,7 +115,7 @@ export async function planWithAI(env, { idea, output }) {
   if (!res.ok) throw new Error(`planner ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
   const plan = JSON.parse(data.choices[0].message.content);
-  return { plan: sanitizePlan(plan, output), model };
+  return { plan: dropInventedFacts(sanitizePlan(plan, output), idea), model };
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;

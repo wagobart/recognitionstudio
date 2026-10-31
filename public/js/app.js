@@ -2,6 +2,7 @@ import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js';
 import { LAYOUT_LABELS } from './layout.js';
 import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js';
 import { CHIPS, loadLibrary, searchLibrary } from './library.js';
+import { detectZone } from './zone.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -444,6 +445,7 @@ async function generateArt({ tweak = '', layout, output, seed } = {}) {
       art = await recoverArt(since, 12);
       if (!art) throw new Error('The connection dropped before the artwork arrived. Please try again.');
     }
+    await fitZone(art);
     p.art = art;
     p.artHistory.push(art);
     if (p.artHistory.length > 24) p.artHistory.shift();
@@ -475,6 +477,12 @@ async function generateArt({ tweak = '', layout, output, seed } = {}) {
   }
 }
 
+// measure where the artwork left empty space, so lettering stays off the decoration
+async function fitZone(art) {
+  if (!art || art.zone) return;
+  try { const z = await detectZone(art.url, art.layout); if (z) art.zone = z; } catch (e) { console.warn('zone detect failed', e); }
+}
+
 async function recoverArt(since, tries = 1) {
   for (let i = 0; i < tries; i++) {
     try {
@@ -493,6 +501,7 @@ async function resumePendingArt() {
   if (!pend || !state.project || pend.id !== state.project.id) return;
   localStorage.removeItem(PENDING_KEY);
   const art = await recoverArt(pend.since, 1);
+  await fitZone(art);
   const p = state.project;
   if (art && !p.artHistory.some((a) => a.key === art.key)) {
     p.art = art;
@@ -906,6 +915,8 @@ function loadIntoEditor(p) {
   if (!p.art) setArtStatus('err', `<span>This design has no artwork yet.</span><button class="ghost-btn small" id="retryArt3">Create artwork</button>`), $('#retryArt3')?.addEventListener('click', () => generateArt());
   fillForm();
   render();
+  // older designs: measure the empty area once
+  if (p.art && !p.art.zone) fitZone(p.art).then(() => { if (p.art.zone && state.project === p) { render(); markDirty(); } });
 }
 
 async function duplicateProject(id) {

@@ -46,7 +46,8 @@ function wrap(text, fontKey, size, maxW, track) {
 }
 
 export function zoneFor(project) {
-  const z = ZONES[project?.art?.layout || project?.plan?.layout] || ZONES.framed;
+  // measured empty area of the actual artwork wins over the nominal layout area
+  const z = project?.art?.zone || ZONES[project?.art?.layout || project?.plan?.layout] || ZONES.framed;
   const st = project.style || {};
   const ws = st.widthScale || 1;
   const w = Math.min(z.w * ws, DESIGN_W - 120);
@@ -96,7 +97,7 @@ export function computeLayout(project) {
       items.push({ field: 'date', text: date, font: S.body.f, size: s, x: cx, y: 0, track: 0, color: body });
       return { items, rules, h: s * 1.3 };
     }
-    const colW = Math.min(W / cols.length, W * 0.42);
+    const colW = Math.min((W * 0.88) / cols.length, W * 0.4);
     const totalW = colW * cols.length;
     const h = nameSize * 1.25 + roleSize * 1.9 + nameSize * 0.6;
     cols.forEach((c, i) => {

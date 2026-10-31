@@ -19,7 +19,7 @@ const PALETTES = [
   { bg: '#f5f0f3', a: '#5a2a3a', b: '#b08d57', c: '#2e3a59' },
 ];
 
-export function mockArtSvg({ idea = '', layout = 'framed', output = 'certificate' }) {
+export function mockArtSvg({ idea = '', layout = 'framed', output = 'certificate', photo = false }) {
   const r = rng(idea + layout + output);
   const W = 1536, H = 1024;
   const pyro = output === 'pyrography';
@@ -98,7 +98,7 @@ export function mockArtSvg({ idea = '', layout = 'framed', output = 'certificate
     parts.push(corners());
   }
   parts.push(
-    `<g opacity="0.75"><rect x="${W - 300}" y="${H - 44}" width="250" height="26" rx="13" fill="#000" fill-opacity="0.55"/><text x="${W - 175}" y="${H - 26}" font-family="Arial, sans-serif" font-size="14" fill="#fff" text-anchor="middle">TEST ARTWORK — not AI</text></g>`
+    `<g opacity="0.75"><rect x="${W - (photo ? 470 : 300)}" y="${H - 44}" width="${photo ? 420 : 250}" height="26" rx="13" fill="#000" fill-opacity="0.55"/><text x="${W - (photo ? 260 : 175)}" y="${H - 26}" font-family="Arial, sans-serif" font-size="14" fill="#fff" text-anchor="middle">TEST ARTWORK — not AI${photo ? ' · photo would be painted in' : ''}</text></g>`
   );
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${parts.join('')}</svg>`;
 }

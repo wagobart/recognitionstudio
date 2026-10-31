@@ -1,6 +1,7 @@
 // Lettering layout engine. Produces positioned text items in a 1500 x 1000 design space.
 // The SVG preview, PNG export and PDF export all draw from this one result.
 import { STYLES, cssFamily } from './fonts.js';
+import { photoAspect, photoLayerOn } from './photo.js';
 
 export const DESIGN_W = 1500;
 export const DESIGN_H = 1000;
@@ -58,15 +59,45 @@ export function zoneFor(project) {
 }
 
 /**
- * @returns {{items: Array, rules: Array, zone: object, fitScale: number}}
+ * @returns {{items: Array, rules: Array, zone: object, photo: object|null, fitScale: number}}
  * item: { field, text, font, size, x, y (baseline), track, color, role }
  */
+/**
+ * A photo layer lives inside the empty area: beside the words (left/right) or above them (top).
+ * Returns the photo's box and the smaller area left for the lettering.
+ */
+export function splitForPhoto(project, full) {
+  if (!photoLayerOn(project)) return { photo: null, zone: full };
+  const ph = project.photo;
+  const a = photoAspect(ph);
+  const size = Math.min(1.5, Math.max(0.5, ph.size || 1));
+  if (ph.place === 'top') {
+    let h = full.h * 0.36 * size, w = h * a;
+    if (w > full.w * 0.7) { w = full.w * 0.7; h = w / a; }
+    const gap = full.h * 0.03;
+    const photo = { x: full.x + (full.w - w) / 2, y: full.y, w, h };
+    return { photo, zone: { x: full.x, y: full.y + h + gap, w: full.w, h: Math.max(full.h * 0.3, full.h - h - gap) } };
+  }
+  let w = full.w * 0.36 * size, h = w / a;
+  if (h > full.h * 0.94) { h = full.h * 0.94; w = h * a; }
+  const gap = full.w * 0.035;
+  const y = full.y + (full.h - h) / 2;
+  const right = ph.place === 'right';
+  const photo = { x: right ? full.x + full.w - w : full.x, y, w, h };
+  return { photo, zone: { x: right ? full.x : full.x + w + gap, y: full.y, w: Math.max(full.w * 0.35, full.w - w - gap), h: full.h } };
+}
+
 export function computeLayout(project) {
   const t = project.text || {};
   const st = project.style || {};
   const S = STYLES[st.lettering] || STYLES.classic;
-  const zone = zoneFor(project);
+  const full = zoneFor(project);
+  const { photo, zone } = splitForPhoto(project, full);
   const W = zone.w;
+  // type size unit: with a photo beside the words, keep lettering near full size and let it wrap
+  // onto more lines (there is height to spare) instead of shrinking everything to the narrow column
+  const beside = !!photo && project.photo.place !== 'top';
+  const U = beside ? Math.max(W, full.w * 0.78) : W;
   const userScale = st.scale || 1;
   const head = st.headColor || '#2a2a3a';
   const body = st.textColor || '#2b2b33';
@@ -89,8 +120,8 @@ export function computeLayout(project) {
     const items = [];
     const rules = [];
     if (!cols.length && !date) return { items, rules, h: 0 };
-    const nameSize = 0.03 * W * scale * userScale;
-    const roleSize = 0.021 * W * scale * userScale;
+    const nameSize = 0.03 * U * scale * userScale;
+    const roleSize = 0.021 * U * scale * userScale;
     if (!cols.length) {
       // date only
       const s = nameSize * S.body.k;
@@ -124,7 +155,7 @@ export function computeLayout(project) {
     const push = (field, r, text, base, color, maxLines, gapAfter) => {
       if (!text) return;
       const R = S[r];
-      let size = base * W * k * R.k;
+      let size = base * U * k * R.k;
       const s = prep(text, r);
       const track = R.track || 0;
       const maxW = W * (r === 'body' ? 0.9 : 0.96);
@@ -135,18 +166,18 @@ export function computeLayout(project) {
         const wd = measure(s, R.f, size, track);
         if (wd > maxW) size *= maxW / wd;
       } else if (lines.length > maxLines) {
-        while (lines.length > maxLines && size > base * W * k * R.k * 0.6) {
+        while (lines.length > maxLines && size > base * U * k * R.k * 0.6) {
           size *= 0.94;
           lines = wrap(s, R.f, size, maxW, track);
         }
       }
-      parts.push({ field, font: R.f, size, lines, track, color, gapAfter: gapAfter * W * k, lh: r === 'body' ? 1.32 : 1.12 });
+      parts.push({ field, font: R.f, size, lines, track, color, gapAfter: gapAfter * U * k, lh: r === 'body' ? 1.32 : 1.12 });
     };
     push('kicker', 'kicker', val('kicker'), 0.024, head, 1, 0.012);
-    push('title', 'title', val('title'), 0.068, head, 2, 0.022);
+    push('title', 'title', val('title'), 0.068, head, beside ? 3 : 2, 0.022);
     push('presented', 'lead', val('presented'), 0.03, body, 1, 0.006);
     push('name', 'name', val('name') || (project._placeholders ? 'Recipient Name' : ''), 0.084, head, 1, 0.026);
-    push('body', 'body', val('body'), 0.03, body, 5, 0.014);
+    push('body', 'body', val('body'), 0.03, body, beside ? 8 : 5, 0.014);
     push('details', 'small', val('details'), 0.022, body, 2, 0);
     let h = 0;
     for (const p of parts) h += p.lines.length * p.size * p.lh + p.gapAfter;
@@ -158,14 +189,14 @@ export function computeLayout(project) {
   for (let i = 0; i < 18; i++) {
     top = topStack(scale);
     bot = bottomBlock(scale);
-    const gap = bot.h ? W * 0.04 * scale : 0;
+    const gap = bot.h ? U * 0.04 * scale : 0;
     if (top.h + gap + bot.h <= zone.h || scale < 0.55) break;
     scale *= 0.95;
   }
 
   const items = [];
   const rules = [];
-  const gap = bot.h ? W * 0.04 * scale : 0;
+  const gap = bot.h ? U * 0.04 * scale : 0;
   const avail = zone.h - bot.h - gap;
   let y = zone.y + Math.max(0, (avail - top.h) / 2);
   // if there is no bottom block, center the whole stack
@@ -186,5 +217,5 @@ export function computeLayout(project) {
   const by = zone.y + zone.h - bot.h;
   for (const it of bot.items) items.push({ ...it, y: it.y + by });
   for (const r of bot.rules) rules.push({ ...r, y: r.y + by });
-  return { items, rules, zone, fitScale: scale };
+  return { items, rules, zone, photo, fitScale: scale };
 }

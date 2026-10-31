@@ -48,7 +48,14 @@ Driven in the Claude desktop app's built-in browser (Chromium, desktop window �
 3. **Planner left a placeholder** ("Years of Service: [Years]") → prompt forbids placeholders and bracketed fragments are removed.
 4. Planner sometimes writes awkward lead-ins (e.g. "Forever in our hearts, remember") — editable by the user; not fixed automatically.
 
+## Photos — 2026-10-31 (test mode)
+`tests/e2e_photos.py`, passing. Desktop: photo picked on the start screen → exact photo → exact graphite → circle/right/125% → "Paint into art" (photo layer stays until the artwork is painted from it, then hides; framed switches to crest) → back to graphite → reopened in a separate session (photo settings identical, thumbnail shows it) → PDF + PNG contain the photo. iPhone 15 emulation: wood-burning memorial, photo added in the editor defaults to graphite, page never wider than the screen, mirrored transfer page mirrors the photo too. iPhone SE emulation: controls fit (mode buttons wrap to two lines).
+Graphite quality checked by eye on a portrait and a cat at three shading levels: reads as a pencil drawing with exact likeness.
+Fixed while testing: lettering shrank too much beside a photo — now keeps near full size and wraps.
+
 ## NOT yet verified — required before calling it production-ready
+- **"Paint into art" with the real image model** (the edit endpoint + reference photo; test mode only shows placeholder art). Likeness quality and refusals for photos of people/children unknown.
+- **Real iPhone photo picker** (HEIC from the camera roll, very large photos, Live Photos).
 - Broader real-AI coverage (only 7 subjects tried so far; layouts art-left/art-right/crest not yet produced by the planner).
 - **Real iPhone Safari**: share sheet → Save to Files, in-app PDF preview (iframe PDF rendering differs on iOS), keyboard + pinned preview behaviour, safe areas. Emulation cannot confirm these.
 - Real print test of a Letter PDF and a mirrored transfer page on wood.

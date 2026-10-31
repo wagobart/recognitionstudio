@@ -3,6 +3,8 @@ import { LAYOUT_LABELS } from './layout.js';
 import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js';
 import { CHIPS, loadLibrary, searchLibrary } from './library.js';
 import { detectZone } from './zone.js';
+import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload } from './photo.js';
+import { zoneFor } from './layout.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -118,7 +120,7 @@ function blankProject(idea, output) {
 }
 
 function serializable(p) {
-  const { _placeholders, _showZone, ...rest } = p;
+  const { _placeholders, _showZone, _photoHref, ...rest } = p;
   return rest;
 }
 
@@ -136,14 +138,21 @@ function setView(v) {
 
 // ---------------- preview ----------------
 let renderQueued = false;
+let renderGen = 0;
 function render() {
   if (renderQueued) return;
   renderQueued = true;
   requestAnimationFrame(async () => {
     renderQueued = false;
+    const gen = ++renderGen;
     const p = state.project;
     if (!p) return;
     await loadStyle(p.style.lettering);
+    p._photoHref = null;
+    if (photoLayerOn(p)) {
+      try { p._photoHref = await photoUrl(photoSrc(p.photo), 760); } catch (e) { console.warn(e); }
+    }
+    if (gen !== renderGen || state.project !== p) return; // a newer render has started
     p._placeholders = true;
     $('#sheetHolder').innerHTML = svgMarkup(p);
     const hot = document.activeElement?.dataset?.field;
@@ -152,6 +161,11 @@ function render() {
 }
 
 $('#sheetHolder').addEventListener('click', (e) => {
+  if (e.target.closest('[data-field="photo"]')) {
+    $('#secPhoto').open = true;
+    $('#secPhoto').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    return;
+  }
   const t = e.target.closest('text[data-field]');
   if (t) focusField(t.dataset.field);
   else if (state.project) { $('#secWording').open = true; }
@@ -181,6 +195,7 @@ function fillForm() {
   $('#outlineToggle').checked = !!p.style.outline;
   $('#subLines').open = !!(p.text.details);
   autosizeAll();
+  syncPhoto();
   syncLettering();
   syncArtSection();
   updateSummaries();
@@ -369,7 +384,7 @@ function syncArtSection() {
     b.innerHTML = `<img src="${a.url}" alt="" loading="lazy"><span>${i + 1}${a.output === 'pyrography' ? ' · wood' : ''}</span>`;
     b.addEventListener('click', () => {
       useArtVersion(p, a);
-      syncLettering(); syncArtSection(); updateSummaries(); render(); markDirty();
+      syncLettering(); syncArtSection(); syncPhoto(); updateSummaries(); render(); markDirty();
     });
     v.appendChild(b);
   });
@@ -417,7 +432,7 @@ function progressHtml(step) {
     .join('')}</ul><p>${step >= 2 ? 'Usually under a minute. Fill in the wording below while you wait.' : ''}</p>`;
 }
 
-async function generateArt({ tweak = '', layout, output, seed } = {}) {
+async function generateArt({ tweak = '', layout, output, seed, withPhoto } = {}) {
   const p = state.project;
   if (state.busyArt) return;
   state.busyArt = true;
@@ -435,7 +450,11 @@ async function generateArt({ tweak = '', layout, output, seed } = {}) {
     try {
       ({ art } = await api('/api/art', {
         method: 'POST',
-        body: { idea: p.idea, artPrompt: p.plan.artPrompt, layout: targetLayout, output: targetOutput, tweak, seed },
+        body: {
+          idea: p.idea, artPrompt: p.plan.artPrompt, layout: targetLayout, output: targetOutput, tweak, seed,
+          // "Paint into art": every redraw keeps using the photo as the reference
+          ...((withPhoto || p.photo?.mode === 'ai') && p.photo?.key ? { photoKey: p.photo.key, photoSubject: p.photo.subject || '' } : {}),
+        },
       }));
     } catch (e) {
       // connection dropped or gateway timed out: the artwork may still have been made — look for it
@@ -467,7 +486,7 @@ async function generateArt({ tweak = '', layout, output, seed } = {}) {
   } finally {
     try { localStorage.removeItem(PENDING_KEY); } catch {}
     state.busyArt = false;
-    syncLettering(); syncArtSection(); updateSummaries(); render();
+    syncLettering(); syncArtSection(); syncPhoto(); updateSummaries(); render();
     markDirty();
   }
 }
@@ -503,7 +522,7 @@ async function resumePendingArt() {
     p.artHistory.push(art);
     p.output = art.output || p.output;
     stageOverlay(null); setArtStatus(null);
-    syncLettering(); syncArtSection(); updateSummaries(); render(); markDirty();
+    syncLettering(); syncArtSection(); syncPhoto(); updateSummaries(); render(); markDirty();
     toast('Recovered the artwork that finished while you were away ✓');
   }
 }
@@ -534,6 +553,216 @@ async function refreshUsage() {
   } catch {}
 }
 
+// ---------------- photo ----------------
+// Local copies of photos uploaded in this session, so the preview never waits for the network.
+const localPhotos = new Map(); // key -> object URL
+const photoSrc = (ph) => ({ ...ph, url: localPhotos.get(ph.key) || ph.url });
+const MODE_HINT = {
+  color: 'Your exact photo, in color, placed in the design.',
+  graphite: 'Your exact photo turned into a pencil drawing. Nothing is redrawn, so the likeness is exact.',
+  ai: 'AI draws the subject into the artwork itself. It blends in beautifully but is a close likeness, not an exact copy. Uses one artwork design.',
+};
+const MODE_LABEL = { color: 'Exact photo', graphite: 'Exact graphite', ai: 'Painted into art' };
+
+function photoError(msg) {
+  const el = $('#photoError');
+  el.textContent = msg || '';
+  el.hidden = !msg;
+}
+
+async function uploadPhoto(prep) {
+  let res;
+  try {
+    res = await fetch('/api/photos', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': prep.type }, body: prep.blob });
+  } catch {
+    throw new Error('No connection — the photo wasn’t added. Please try again.');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const e = new Error(data.error || 'The photo couldn’t be added.');
+    e.status = res.status;
+    throw e;
+  }
+  return data; // { key, url }
+}
+
+// a sensible spot: beside the words when the empty area is wide, above them when it's tall
+function defaultPlace(p) {
+  const z = zoneFor(p);
+  return z.w / z.h > 1.15 ? 'left' : 'top';
+}
+
+async function attachPhoto(prep, { replace = false } = {}) {
+  const p = state.project;
+  if (!p) return;
+  photoError('');
+  $('#secPhoto').open = true;
+  $('#photoSummary').textContent = 'Adding photo…';
+  try {
+    const { key, url } = await uploadPhoto(prep);
+    localPhotos.set(key, prep.localUrl);
+    const logo = prep.type === 'image/png';
+    const keep = replace && p.photo ? { mode: p.photo.mode, shape: p.photo.shape, place: p.photo.place, size: p.photo.size, fade: p.photo.fade, shading: p.photo.shading, detail: p.photo.detail, subject: p.photo.subject } : null;
+    p.photo = {
+      ...PHOTO_DEFAULTS,
+      mode: p.output === 'pyrography' ? 'graphite' : 'color',
+      place: defaultPlace(p),
+      ...(logo ? { shape: 'full', fade: 0 } : {}),
+      ...(keep || {}),
+      key, url, w: prep.w, h: prep.h, type: prep.type,
+      zoom: 1, fx: PHOTO_DEFAULTS.fx, fy: PHOTO_DEFAULTS.fy,
+    };
+    syncPhoto(); render(); markDirty();
+    toast(replace ? 'Photo replaced ✓' : 'Photo added ✓ Choose how it appears below.');
+  } catch (e) {
+    if (e.status === 401) return needAuth(() => attachPhoto(prep, { replace }));
+    photoError(e.message);
+    syncPhoto();
+  }
+}
+
+async function onPhotoFile(input, opts) {
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  try {
+    attachPhoto(await prepareUpload(file), opts);
+  } catch (e) {
+    photoError(e.message);
+  }
+}
+$('#photoInput').addEventListener('change', (e) => onPhotoFile(e.target));
+$('#photoReplace').addEventListener('change', (e) => onPhotoFile(e.target, { replace: true }));
+$('#photoRemove').addEventListener('click', () => {
+  state.project.photo = null;
+  photoError('');
+  syncPhoto(); render(); markDirty();
+  toast('Photo removed.');
+});
+
+function buildPhotoChips() {
+  for (const [box, map, key] of [['#photoShapeChips', SHAPES, 'shape'], ['#photoPlaceChips', PLACES, 'place']]) {
+    const c = $(box);
+    for (const [id, label] of Object.entries(map)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.dataset.v = id;
+      b.textContent = label;
+      b.addEventListener('click', () => setPhoto(key, id));
+      c.appendChild(b);
+    }
+  }
+}
+
+function setPhoto(key, value) {
+  const ph = state.project?.photo;
+  if (!ph) return;
+  ph[key] = value;
+  syncPhoto(); render(); markDirty();
+}
+
+const PHOTO_RANGES = { '#phShading': 'shading', '#phDetail': 'detail', '#phSize': 'size', '#phFade': 'fade', '#phZoom': 'zoom', '#phFy': 'fy', '#phFx': 'fx' };
+for (const [sel, key] of Object.entries(PHOTO_RANGES)) {
+  $(sel).addEventListener('input', (e) => {
+    const ph = state.project?.photo;
+    if (!ph) return;
+    ph[key] = Number(e.target.value);
+    syncPhotoOutputs();
+    render(); markDirty();
+  });
+  $(sel).addEventListener('change', () => syncPhotoThumb());
+}
+$('#phCropReset').addEventListener('click', () => {
+  Object.assign(state.project.photo, { zoom: 1, fx: PHOTO_DEFAULTS.fx, fy: PHOTO_DEFAULTS.fy });
+  syncPhoto(); render(); markDirty();
+});
+$$('#photoModeSeg button').forEach((b) => b.addEventListener('click', () => setPhoto('mode', b.dataset.mode)));
+$('#photoSubject').addEventListener('input', (e) => { state.project.photo.subject = e.target.value; markDirty(); });
+$('#photoPaintBtn').addEventListener('click', () => {
+  const p = state.project;
+  const cur = p.art?.layout || p.plan.layout;
+  // a decorative border leaves no room for a portrait: give the subject a featured spot instead
+  generateArt({ withPhoto: true, layout: cur === 'framed' ? 'crest' : cur });
+});
+
+function syncPhotoOutputs() {
+  const ph = state.project?.photo;
+  if (!ph) return;
+  const pct = (v) => Math.round(v * 100) + '%';
+  $('#phShadingOut').textContent = pct(ph.shading);
+  $('#phDetailOut').textContent = pct(ph.detail);
+  $('#phSizeOut').textContent = pct(ph.size);
+  $('#phFadeOut').textContent = pct(ph.fade);
+}
+
+let thumbTimer;
+function syncPhotoThumb() {
+  clearTimeout(thumbTimer);
+  thumbTimer = setTimeout(async () => {
+    const ph = state.project?.photo;
+    if (!ph) return;
+    const shown = ph.mode === 'ai' ? { ...ph, mode: 'color' } : ph;
+    try { $('#photoThumb').src = await photoUrl(photoSrc(shown), 260); } catch {}
+  }, 120);
+}
+
+function syncPhoto() {
+  const p = state.project;
+  const ph = p?.photo;
+  $('#photoEmpty').hidden = !!ph;
+  $('#photoEdit').hidden = !ph;
+  if (!ph) {
+    $('#photoSummary').textContent = 'Add a person, pet, place or logo';
+    return;
+  }
+  $$('#photoModeSeg button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === ph.mode)));
+  $('#photoModeHint').textContent = MODE_HINT[ph.mode] || '';
+  const ai = ph.mode === 'ai';
+  const painted = photoPainted(p);
+  $('#photoAiControls').hidden = !ai;
+  $('#photoLayerControls').hidden = ai && painted;
+  $('#graphiteControls').hidden = ph.mode !== 'graphite';
+  $('#photoSubject').value = ph.subject || '';
+  $('#photoPaintBtn').textContent = painted ? 'Paint it in again' : 'Paint it into the artwork';
+  $('#photoPaintBtn').disabled = state.busyArt;
+  $('#photoAiNote').textContent = painted
+    ? 'The current artwork was painted from your photo. Switch to “Exact photo” or “Exact graphite” any time to use the photo as-is instead.'
+    : 'Until you tap the button, your exact photo stays in the design. Earlier artwork stays under Artwork → versions.';
+  $$('#photoShapeChips .chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === ph.shape)));
+  $$('#photoPlaceChips .chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === ph.place)));
+  for (const [sel, key] of Object.entries(PHOTO_RANGES)) $(sel).value = ph[key] ?? PHOTO_DEFAULTS[key];
+  syncPhotoOutputs();
+  syncPhotoThumb();
+  $('#photoSummary').textContent = ai
+    ? (painted ? 'Painted into the artwork' : 'Paint into art — not painted yet')
+    : `${MODE_LABEL[ph.mode]} · ${SHAPES[ph.shape] || ''} · ${(PLACES[ph.place] || '').toLowerCase()}`;
+}
+
+// start screen: a photo can be picked before designing
+function clearStartPhoto(revoke = true) {
+  if (revoke && state.pendingPhoto) URL.revokeObjectURL(state.pendingPhoto.localUrl);
+  state.pendingPhoto = null;
+  $('#startPhotoNote').hidden = true;
+  $('#startPhotoLabel').textContent = 'Add a photo';
+}
+$('#startPhotoInput').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const prep = await prepareUpload(file);
+    clearStartPhoto();
+    state.pendingPhoto = prep;
+    $('#startPhotoThumb').src = prep.localUrl;
+    $('#startPhotoNote').hidden = false;
+    $('#startPhotoLabel').textContent = 'Change photo';
+  } catch (err) {
+    toast(err.message, { error: true });
+  }
+});
+$('#startPhotoRemove').addEventListener('click', () => clearStartPhoto());
+
 // ---------------- start / design ----------------
 function selectedOutput() {
   return $('input[name="output"]:checked').value;
@@ -560,6 +789,11 @@ async function startDesign() {
   setView('editor');
   fillForm();
   render();
+  if (state.pendingPhoto) {
+    const pend = state.pendingPhoto;
+    clearStartPhoto(false);
+    attachPhoto(pend);
+  }
   stageOverlay('busy', progressHtml(1));
   setArtStatus('busy', `<div class="spinner"></div><span>Designing… this takes about a minute.</span>`);
   $('#secWording').open = true;
@@ -899,7 +1133,10 @@ function projectCard(pr, output) {
     const prev = { ...pr.preview, output, art: v ? { url: v.url, layout: v.layout, zone: v.zone } : pr.preview.art, style: { ...pr.preview.style } };
     if (output === 'pyrography') Object.assign(prev.style, { headColor: BURN, textColor: BURN });
     else if (prev.style.headColor === BURN) Object.assign(prev.style, { headColor: prev.style.certHead || COLORS[1][0], textColor: prev.style.certText || COLORS[0][0], outline: false });
-    loadStyle(prev.style.lettering).then(() => { thumb.innerHTML = svgMarkup(prev, { interactive: false }); });
+    Promise.all([
+      loadStyle(prev.style.lettering),
+      photoLayerOn(prev) ? photoUrl(prev.photo, 260).then((u) => (prev._photoHref = u)).catch(() => {}) : null,
+    ]).then(() => { thumb.innerHTML = svgMarkup(prev, { interactive: false }); });
   } else if (v?.url || pr.artUrl) thumb.style.backgroundImage = `url("${v?.url || pr.artUrl}")`;
   const award = pr.preview?.text?.title || pr.title;
   card.querySelector('b').textContent = pr.name || award;
@@ -1095,6 +1332,7 @@ async function restoreLast() {
   buildSwatches($('#headSwatches'), 'headColor');
   buildSwatches($('#textSwatches'), 'textColor');
   buildLayoutChips();
+  buildPhotoChips();
   setView('start');
   loadLibrary().then((d) => ($('#ideaCount').textContent = d.length.toLocaleString()));
   try {

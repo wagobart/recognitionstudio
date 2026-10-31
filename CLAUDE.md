@@ -33,7 +33,16 @@ font/color/size/position changes never call the AI and never cost money.
   My projects is split into **Wood-burning patterns** and **Color certificates** sections (`projectCard`). `GET /api/projects` returns `versions{certificate,pyrography}` = latest artwork of each kind from `artHistory`; a project with both is listed in both sections (tag "+ Certificate" / "+ Wood-burning"), and opening it from a section shows that section's version (`openProject(id,{output})`). Delete removes the whole project, both versions (confirm says so).
   Switching output always goes through `setOutputColors`/`useArtVersion`: pyrography forces burn tone and stashes the certificate colors in `style.certHead/certText`, restored when switching back.
 - `scripts/build-prompts.mjs` → `public/data/prompts.json` (1,277 ideas; fields id,c,o,t,p,k).
-- `tests/e2e.py` — Playwright suite (desktop + iPhone emulation).
+- `tests/e2e.py` — Playwright suite (desktop + iPhone emulation). `tests/e2e_photos.py` — photo feature (fixtures in `tests/fixtures/`, public-domain/CC0).
+
+## Photos (added 2026-10-31)
+User photos are a **third layer** (artwork · photo · lettering), except in "Paint into art" mode. Three modes per project (`project.photo.mode`):
+- `color` **Exact photo** and `graphite` **Exact graphite** — no AI, exact likeness. `public/js/photo.js` `renderPhotoCanvas()` does it all in the browser: crop (zoom + focus fx/fy) to the shape's aspect (oval/rounded 4:5, circle 1:1, full = original), soft-edge alpha mask (`fade`), and for graphite a colour-dodge pencil pass (blur radius from `detail`) multiplied by tonal shading (`shading`) + seeded paper grain, cool grey. Deterministic, so preview (760px), thumbnails (260px), PNG and PDF (1800px) match. Nothing rendered is stored; only the original upload is.
+- `ai` **Paint into art** — `/api/art` gets `photoKey` (+ optional `photoSubject`); server loads the photo from R2 and calls `POST /v1/images/edits` (multipart, `image` + prompt, `input_fidelity=high`, auto-retried without it if the model rejects that field). `photoInstruction()` in design.js says where the subject goes per layout; the Paint button switches `framed` → `crest` so the subject gets a featured spot. Result art carries `fromPhoto: <photoKey>`. The photo layer stays visible in `ai` mode until the current art was painted from it (`photoPainted`/`photoLayerOn`); later redraws in `ai` mode keep sending the photo. Moderation refusal → message pointing to the exact modes. **Not yet verified against the real model.**
+- Layout: `layout.splitForPhoto()` puts the photo inside the measured empty area — `left`/`right` (≈36% of width × `size`, text column beside it) or `top` (≈36% of height). Beside a photo, type size uses unit `U = max(textW, fullW*0.78)` and title/body may wrap to 3/8 lines, so lettering stays readable instead of shrinking to the column.
+- Storage: `POST /api/photos` (raw JPEG/PNG body, ≤12 MB) → R2 `photo/{userId}/{ph_id}`, served owner-only by `GET /api/photo/...`. Client `prepareUpload()` shrinks to ≤2400px (PNG kept as PNG for logos → defaults shape `full`, no soft edge; others JPEG 0.92). Uploaded-this-session photos render from a local object URL (`localPhotos`).
+- Defaults when added: graphite for wood-burning, color for certificates; position left if the empty area is wide, else top. Photo can be picked on the start screen (`state.pendingPhoto`, attached right after "Design it") or in the editor's Photo section. Tapping the photo on the design opens the Photo section.
+- No background removal yet (would need an on-device cut-out model; the good one is AGPL and large). "Soft edges" + shape is the current answer to busy backgrounds.
 
 ## Fonts — important
 TTFs are Google Fonts (OFL), static instances, subset to Latin, **GSUB removed**, name table renamed `RS-*`.
@@ -42,7 +51,7 @@ TTFs are Google Fonts (OFL), static instances, subset to Latin, **GSUB removed**
 If you add a font: instance → pyftsubset → delete GSUB → add to FONT_FILES → verify with the e2e PDF text check.
 
 ## Project JSON (stored in D1 `projects.data`)
-`{ id 'p_…', v, title, output, idea, createdAt, updatedAt, plan{layout,artPrompt,designNotes,source}, art{key,url,contentType,layout,output,test?}, artHistory[], text{name,title,body,date,kicker,presented,details,sig1Name,sig1Role,sig2Name,sig2Role}, style{lettering,headColor,textColor,certHead?,certText?,scale,offsetX,offsetY,widthScale,outline} }`
+`{ id 'p_…', v, title, output, idea, createdAt, updatedAt, plan{layout,artPrompt,designNotes,source}, art{key,url,contentType,layout,output,test?}, artHistory[], text{name,title,body,date,kicker,presented,details,sig1Name,sig1Role,sig2Name,sig2Role}, style{lettering,headColor,textColor,certHead?,certText?,scale,offsetX,offsetY,widthScale,outline}, photo?{key,url,w,h,type,mode,shape,place,size,fade,shading,detail,zoom,fx,fy,subject?} }` — art may also carry `fromPhoto`.`
 A signature column renders if name OR role is set (role-only = blank line to sign by hand). Pyrography forces burn tone `#1f1610`.
 
 ## Export UX rules
@@ -55,4 +64,4 @@ A signature column renders if name OR role is set (role-only = blank line to sig
 - Server errors never lose work: localStorage draft is restored if newer than cloud copy.
 
 ## Known gaps (as of 2026-10-31)
-No password reset (no email provider); no admin UI; orphaned R2 images are never cleaned up; pyrography page sizes are fit-to-paper (no actual-size tiling); real-iPhone behaviour not yet verified; planner can produce awkward lead-in lines — see docs/TESTING.md.
+No password reset (no email provider); photos in R2 are never cleaned up either; no background removal; no admin UI; orphaned R2 images are never cleaned up; pyrography page sizes are fit-to-paper (no actual-size tiling); real-iPhone behaviour not yet verified; planner can produce awkward lead-in lines — see docs/TESTING.md.

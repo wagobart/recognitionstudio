@@ -111,17 +111,26 @@ route('POST', '/api/art', async ({ env, request, user }) => {
   const tweak = clean(body.tweak, 400);
   if (!artPrompt) return err('Missing design description.');
   if (tweak) artPrompt += `. Requested change: ${tweak}`;
-  const prompt = buildImagePrompt({ artPrompt, layout, output });
+  // "Paint it into the artwork": the user's own uploaded photo is the reference
+  let ref = null;
+  const photoKey = typeof body.photoKey === 'string' ? body.photoKey : '';
+  if (photoKey) {
+    if (!photoKey.startsWith(`photo/${user.id}/`)) return err('Photo not found.', 404);
+    const obj = await env.ART.get(photoKey);
+    if (!obj) return err('That photo could not be found. Please add it again.', 404);
+    ref = { bytes: new Uint8Array(await obj.arrayBuffer()), contentType: obj.httpMetadata?.contentType || 'image/jpeg' };
+  }
+  const prompt = buildImagePrompt({ artPrompt, layout, output, photo: ref ? { subject: clean(body.photoSubject, 60) } : null });
   const id = uid('a_');
   const key = `art/${user.id}/${id}`;
   const L = limits(env);
 
   if (isMock(env)) {
     if (/SIMULATE_FAILURE/.test(tweak)) return err('The artwork could not be created this time. Your wording is safe — please try again.', 502, { code: 'ai_error' });
-    const svg = mockArtSvg({ idea: artPrompt + (body.seed || ''), layout, output });
+    const svg = mockArtSvg({ idea: artPrompt + (body.seed || ''), layout, output, photo: !!ref });
     await env.ART.put(key, svg, { httpMetadata: { contentType: 'image/svg+xml' } });
     await logGen(env, { id, userId: user.id, kind: 'art', model: 'test', status: 'ok', cost: 0, detail: JSON.stringify({ layout, output, contentType: 'image/svg+xml', test: true }) });
-    return json({ art: { key, url: `/api/${key}`, contentType: 'image/svg+xml', width: 1536, height: 1024, layout, output, test: true, prompt } });
+    return json({ art: { key, url: `/api/${key}`, contentType: 'image/svg+xml', width: 1536, height: 1024, layout, output, test: true, prompt, ...(ref ? { fromPhoto: photoKey } : {}) } });
   }
 
   const u = await usage(env, user.id);
@@ -131,11 +140,11 @@ route('POST', '/api/art', async ({ env, request, user }) => {
     return err('This month’s artwork budget has been reached. You can still edit wording and export existing designs.', 429, { code: 'budget' });
 
   try {
-    const img = await generateImage(env, prompt);
+    const img = await generateImage(env, prompt, ref);
     await env.ART.put(key, img.bytes, { httpMetadata: { contentType: img.contentType } });
     await logGen(env, { id, userId: user.id, kind: 'art', model: img.model, status: 'ok', cost: L.artCost, detail: JSON.stringify({ layout, output, contentType: img.contentType, usage: img.usage }).slice(0, 600) });
     const [w, h] = (env.IMAGE_SIZE || '1536x1024').split('x').map(Number);
-    return json({ art: { key, url: `/api/${key}`, contentType: img.contentType, width: w, height: h, layout, output, prompt } });
+    return json({ art: { key, url: `/api/${key}`, contentType: img.contentType, width: w, height: h, layout, output, prompt, ...(ref ? { fromPhoto: photoKey } : {}) } });
   } catch (e) {
     const fe = e instanceof FriendlyError ? e : new FriendlyError('The artwork could not be created this time. Your wording is safe — please try again.');
     await logGen(env, { userId: user.id, kind: 'art', model: env.IMAGE_MODEL, status: 'error', detail: String(e.message).slice(0, 300) });
@@ -153,6 +162,29 @@ route('GET', '/api/art-latest', async ({ env, user, url }) => {
   try { d = JSON.parse(r.detail || '{}'); } catch {}
   const key = `art/${user.id}/${r.id}`;
   return json({ art: { key, url: `/api/${key}`, contentType: d.contentType || 'image/png', width: 1536, height: 1024, layout: d.layout || 'framed', output: d.output || 'certificate', test: !!d.test, recovered: true } });
+});
+
+// ---------- photos the user adds to a design (private, owner only) ----------
+const PHOTO_TYPES = { 'image/jpeg': 1, 'image/png': 1, 'image/webp': 1 };
+route('POST', '/api/photos', async ({ env, request, user }) => {
+  const type = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (!PHOTO_TYPES[type]) return err('Please use a JPEG or PNG photo.', 415);
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (!bytes.length) return err('That photo was empty.');
+  if (bytes.length > 12 * 1048576) return err('That photo is too large (12 MB max).', 413);
+  const id = uid('ph_');
+  const key = `photo/${user.id}/${id}`;
+  await env.ART.put(key, bytes, { httpMetadata: { contentType: type } });
+  return json({ key, url: `/api/${key}` });
+});
+
+route('GET', '/api/photo/(u_[a-z0-9]+)/(ph_[a-z0-9]+)', async ({ env, user, m }) => {
+  if (m[1] !== user.id) return err('Not found', 404);
+  const obj = await env.ART.get(`photo/${m[1]}/${m[2]}`);
+  if (!obj) return err('Not found', 404);
+  return new Response(obj.body, {
+    headers: { 'content-type': obj.httpMetadata?.contentType || 'image/jpeg', 'cache-control': 'private, max-age=31536000, immutable' },
+  });
 });
 
 route('GET', '/api/art/(u_[a-z0-9]+)/(a_[a-z0-9]+)', async ({ env, user, m }) => {
@@ -174,7 +206,7 @@ route('GET', '/api/projects', async ({ env, user }) => {
       let d = {};
       try { d = JSON.parse(r.data); } catch {}
       // enough to draw a true thumbnail (artwork + lettering) without opening the project
-      const preview = { output: d.output, art: d.art ? { url: d.art.url, layout: d.art.layout, zone: d.art.zone } : null, plan: { layout: d?.plan?.layout }, text: d.text || {}, style: d.style || {} };
+      const preview = { output: d.output, art: d.art ? { url: d.art.url, layout: d.art.layout, zone: d.art.zone } : null, plan: { layout: d?.plan?.layout }, text: d.text || {}, style: d.style || {}, photo: d.photo || null };
       // latest artwork of each kind, so a project with both a certificate and a wood-burning
       // version can be listed in both sections of My projects
       const versions = {};

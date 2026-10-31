@@ -30,8 +30,22 @@ export const LETTERING = ['classic', 'engraved', 'elegant', 'diploma', 'modern',
 const NO_TEXT =
   'Absolutely no text of any kind: no letters, words, numbers, monograms, banners with writing, signatures, seals with writing, or placeholder lines. Leave the empty area truly empty so lettering can be added later.';
 
-export function buildImagePrompt({ artPrompt, layout, output }) {
+// Extra instruction when a reference photo is supplied ("Paint it into the artwork").
+export function photoInstruction(layout, subject) {
+  const what = subject ? `the ${subject} shown in the reference photo` : 'the main subject of the reference photo';
+  const where = {
+    crest: 'as the featured emblem centered along the top edge, like a portrait medallion',
+    'art-left': 'as the tall featured illustration in the left third',
+    'art-right': 'as the tall featured illustration in the right third',
+    scene: 'as the centerpiece of the scene along the bottom',
+    framed: 'woven prominently into the decorative border',
+  }[layout] || 'prominently in the artwork';
+  return `Feature ${what} ${where}, faithfully matching its real appearance, likeness, markings, colors and proportions. Only the subject comes from the photo: do not copy its background, and do not let the subject enter the empty lettering area.`;
+}
+
+export function buildImagePrompt({ artPrompt, layout, output, photo }) {
   const L = LAYOUTS[layout] || LAYOUTS.framed;
+  if (photo) artPrompt = `${artPrompt}. ${photoInstruction(layout, photo.subject)}`;
   if (output === 'pyrography') {
     return [
       'Photorealistic graphite pencil drawing to be used as a pyrography (wood burning) reference, horizontal 3:2 landscape page, clean white paper background.',

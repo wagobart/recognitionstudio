@@ -320,3 +320,21 @@ svg { flex: none; }
   .toast { bottom: 30px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+
+/* ---------- photos ---------- */
+.file-btn { position: relative; cursor: pointer; }
+.file-btn input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file-btn:focus-within { outline: 3px solid #7aa2d6; outline-offset: 2px; }
+.start-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.start-tools .ghost-btn { padding-left: 8px; padding-right: 8px; font-size: 15px; white-space: nowrap; }
+@media (max-width: 370px) { .start-tools .ghost-btn { font-size: 14px; gap: 5px; } .start-tools svg { width: 17px; height: 17px; } }
+.start-photo { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; padding: 8px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; font-size: 13.5px; color: var(--ink-2); }
+.start-photo img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; flex: none; }
+.start-photo .text-btn { margin-left: auto; padding: 4px 0; }
+.sec-ico svg { width: 19px; height: 19px; }
+.photo-head { display: flex; gap: 12px; align-items: center; margin: 2px 0 12px; }
+.photo-head img { width: 84px; height: 96px; object-fit: contain; border-radius: 8px; background: repeating-conic-gradient(#f1ede6 0 25%, #fff 0 50%) 0 0/14px 14px; border: 1px solid var(--line); flex: none; }
+.photo-head-btns { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.danger-text { color: var(--danger); }
+.photo-modes button { font-size: 14px; padding-left: 4px; padding-right: 4px; }
+#photoModeHint { margin: 8px 0 12px; }

@@ -1,6 +1,7 @@
 // Three renderers fed by the same layout: live SVG preview, PNG (canvas) and PDF (pdf-lib).
 import { computeLayout, DESIGN_W, DESIGN_H } from './layout.js';
 import { cssFamily, fontBuffer, loadStyle } from './fonts.js';
+import { photoPngBytes } from './photo.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -14,9 +15,15 @@ function ornament(r, outline) {
 }
 
 export function svgMarkup(project, { interactive = true, artHref } = {}) {
-  const { items, rules, zone } = computeLayout(project);
+  const { items, rules, zone, photo } = computeLayout(project);
   const outline = project.output === 'pyrography' && project.style?.outline;
   const href = artHref ?? project.art?.url;
+  // photo layer: the finished image is prepared asynchronously (project._photoHref); until then a soft placeholder
+  const photoEl = !photo
+    ? ''
+    : project._photoHref
+      ? `<image data-field="photo" href="${esc(project._photoHref)}" x="${photo.x.toFixed(1)}" y="${photo.y.toFixed(1)}" width="${photo.w.toFixed(1)}" height="${photo.h.toFixed(1)}" preserveAspectRatio="xMidYMid meet"/>`
+      : `<rect data-field="photo" x="${photo.x}" y="${photo.y}" width="${photo.w}" height="${photo.h}" rx="${Math.min(photo.w, photo.h) / 2}" fill="rgba(120,120,120,0.12)"/>`;
   const art = href
     ? `<image href="${esc(href)}" x="0" y="0" width="${DESIGN_W}" height="${DESIGN_H}" preserveAspectRatio="xMidYMid slice"/>`
     : `<rect width="${DESIGN_W}" height="${DESIGN_H}" fill="${project.output === 'pyrography' ? '#fff' : '#f7f2e8'}"/>
@@ -36,7 +43,7 @@ export function svgMarkup(project, { interactive = true, artHref } = {}) {
   const guide = interactive && project._showZone
     ? `<rect x="${zone.x}" y="${zone.y}" width="${zone.w}" height="${zone.h}" fill="rgba(80,120,255,0.07)" stroke="#4f7cff" stroke-width="3" stroke-dasharray="12 8" rx="8"/>`
     : '';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${DESIGN_W} ${DESIGN_H}" class="design-svg">${art}${guide}${lines}${texts}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${DESIGN_W} ${DESIGN_H}" class="design-svg">${art}${guide}${photoEl}${lines}${texts}</svg>`;
 }
 
 // ---------- shared: get artwork as raster bytes ----------
@@ -76,7 +83,7 @@ async function artRaster(project, targetW = 3000) {
 // ---------- PNG ----------
 export async function renderPng(project, width = 3000) {
   await loadStyle(project.style.lettering);
-  const { items, rules } = computeLayout(project);
+  const { items, rules, photo } = computeLayout(project);
   const k = width / DESIGN_W;
   const c = document.createElement('canvas');
   c.width = width;
@@ -92,6 +99,15 @@ export async function renderPng(project, width = 3000) {
     URL.revokeObjectURL(url);
   }
   const outline = project.output === 'pyrography' && project.style?.outline;
+  if (photo) {
+    const bytes = await photoPngBytes(project.photo, Math.min(2000, Math.round(Math.max(photo.w, photo.h) * k * 1.2)));
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+    const pim = await loadImage(url);
+    const fit = Math.min(photo.w / pim.naturalWidth, photo.h / pim.naturalHeight);
+    const pw = pim.naturalWidth * fit, ph = pim.naturalHeight * fit;
+    g.drawImage(pim, (photo.x + (photo.w - pw) / 2) * k, (photo.y + (photo.h - ph) / 2) * k, pw * k, ph * k);
+    URL.revokeObjectURL(url);
+  }
   g.scale(k, k);
   for (const r of rules) {
     g.strokeStyle = r.color;
@@ -162,12 +178,14 @@ export async function renderPdf(project, { paper = 'letter', mirror = false } = 
   doc.setCreator('Recognition Studio');
   doc.setProducer('Recognition Studio');
 
-  const { items, rules } = computeLayout(project);
+  const { items, rules, photo } = computeLayout(project);
   const fonts = {};
   for (const key of new Set(items.map((i) => i.font))) fonts[key] = await doc.embedFont(await fontBuffer(key), { subset: false });
 
   const ras = await artRaster(project, 3000);
   const img = ras ? (ras.type === 'png' ? await doc.embedPng(ras.bytes) : await doc.embedJpg(ras.bytes)) : null;
+  // photo layer at print resolution (≈300 dpi for its printed size)
+  const pimg = photo ? await doc.embedPng(await photoPngBytes(project.photo, 1800)) : null;
 
   const [PW, PH] = PAGES[paper] || PAGES.letter;
   const margin = 18;
@@ -182,6 +200,12 @@ export async function renderPdf(project, { paper = 'letter', mirror = false } = 
     // design-space (top-left origin) -> PDF (bottom-left origin)
     const X = (x) => ox + x * k;
     const Y = (y) => oy + AH - y * k;
+    if (pimg) {
+      const fit = Math.min(photo.w / pimg.width, photo.h / pimg.height);
+      const pw = pimg.width * fit, ph = pimg.height * fit;
+      const px = photo.x + (photo.w - pw) / 2, py = photo.y + (photo.h - ph) / 2;
+      page.drawImage(pimg, { x: X(px), y: Y(py + ph), width: pw * k, height: ph * k });
+    }
     for (const r of rules) {
       const [cr, cg, cb] = hexToRgb(r.color);
       const color = rgb(cr, cg, cb);

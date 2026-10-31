@@ -8,7 +8,9 @@ export class FriendlyError extends Error {
   }
 }
 
-export async function generateImage(env, prompt) {
+// ref: optional { bytes, contentType } reference photo. With a reference the call goes to the
+// image-edit endpoint so the model can draw that exact subject into the artwork.
+export async function generateImage(env, prompt, ref = null) {
   const model = env.IMAGE_MODEL || 'gpt-image-1';
   const body = {
     model,
@@ -19,25 +21,51 @@ export async function generateImage(env, prompt) {
   };
   if (env.IMAGE_FORMAT) body.output_format = env.IMAGE_FORMAT;
 
-  let res;
-  try {
-    res = await fetch('https://api.openai.com/v1/images/generations', {
+  const call = (fidelity) => {
+    if (!ref) {
+      return fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${env.OPENAI_API_KEY}`, 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    }
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(body)) fd.append(k, String(v));
+    // keep the subject's likeness as close to the photo as the model allows
+    if (fidelity) fd.append('input_fidelity', 'high');
+    const ext = /png/.test(ref.contentType) ? 'png' : 'jpg';
+    fd.append('image', new Blob([ref.bytes], { type: ref.contentType || 'image/jpeg' }), `reference.${ext}`);
+    return fetch('https://api.openai.com/v1/images/edits', {
       method: 'POST',
-      headers: { authorization: `Bearer ${env.OPENAI_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      headers: { authorization: `Bearer ${env.OPENAI_API_KEY}` },
+      body: fd,
     });
+  };
+
+  let res, text, data;
+  try {
+    res = await call(true);
+    text = await res.text();
+    data = {};
+    try { data = JSON.parse(text); } catch {}
+    // some image models don't accept input_fidelity: retry once without it
+    if (ref && res.status === 400 && /input_fidelity/i.test(data?.error?.message || text)) {
+      res = await call(false);
+      text = await res.text();
+      data = {};
+      try { data = JSON.parse(text); } catch {}
+    }
   } catch (e) {
     throw new FriendlyError('Could not reach the artwork service. Your wording is safe — please try again.', 503, 'network');
   }
-  const text = await res.text();
-  let data = {};
-  try { data = JSON.parse(text); } catch {}
   if (!res.ok) {
     const code = data?.error?.code || '';
     const msg = data?.error?.message || text.slice(0, 300);
     console.log('openai image error', res.status, code, msg);
     if (code === 'moderation_blocked' || /safety|moderation/i.test(msg))
-      throw new FriendlyError('The artwork service declined this description. Try rewording it (for example, remove brand names or logos).', 422, 'moderation');
+      throw new FriendlyError(ref
+        ? 'The artwork service declined to redraw this photo. Use “Exact photo” or “Exact graphite” instead — they keep the photo as-is and always work.'
+        : 'The artwork service declined this description. Try rewording it (for example, remove brand names or logos).', 422, 'moderation');
     if (res.status === 429)
       throw new FriendlyError('The artwork service is busy or the account limit was reached. Please try again in a minute.', 429, 'rate');
     if (res.status === 401)

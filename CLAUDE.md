@@ -35,6 +35,14 @@ font/color/size/position changes never call the AI and never cost money.
 - `scripts/build-prompts.mjs` → `public/data/prompts.json` (1,277 ideas; fields id,c,o,t,p,k).
 - `tests/e2e.py` — Playwright suite (desktop + iPhone emulation). `tests/e2e_photos.py` — photo feature (fixtures in `tests/fixtures/`, public-domain/CC0).
 
+## Certificate ↔ wood-burning versions are the identical artwork (no AI)
+"Make the wood-burning / certificate version (same design)" (`convertOutput` in app.js) never calls the image model:
+- If the other version already exists as this art's partner (`derivedFrom` either way), it just switches to it.
+- Certificate → wood-burning: `photo.js deriveArtCanvas(art,'pyrography')` = the same graphite conversion as Exact-graphite photos (shading 0.5, detail 0.65) on the full image.
+- Wood-burning → certificate (design that started as a pattern): same drawing mapped to sepia ink `#3a2616` on parchment `#f4ead5`. Full color would need the AI (drift), so it isn't offered.
+- Result is uploaded as JPEG to `POST /api/art/derived?from=&output=&layout=` (no cost, no usage log) and gets `derivedFrom`, plus the source's `zone` and `fromPhoto`, so lettering sits exactly where it did. A color photo layer switches to graphite for the pattern (`wasColor`) and back.
+Older projects whose two versions were AI-drawn separately (before 2026-10-31 evening) still differ; re-run the button from the certificate to get an exact pattern.
+
 ## Photos (added 2026-10-31)
 User photos are a **third layer** (artwork · photo · lettering), except in "Paint into art" mode. Three modes per project (`project.photo.mode`):
 - `color` **Exact photo** and `graphite` **Exact graphite** — no AI, exact likeness. `public/js/photo.js` `renderPhotoCanvas()` does it all in the browser: crop (zoom + focus fx/fy) to the shape's aspect (oval/rounded 4:5, circle 1:1, full = original), soft-edge alpha mask (`fade`), and for graphite a colour-dodge pencil pass (blur radius from `detail`) multiplied by tonal shading (`shading`) + seeded paper grain, cool grey. Deterministic, so preview (760px), thumbnails (260px), PNG and PDF (1800px) match. Nothing rendered is stored; only the original upload is.

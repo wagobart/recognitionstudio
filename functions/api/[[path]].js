@@ -164,6 +164,23 @@ route('GET', '/api/art-latest', async ({ env, user, url }) => {
   return json({ art: { key, url: `/api/${key}`, contentType: d.contentType || 'image/png', width: 1536, height: 1024, layout: d.layout || 'framed', output: d.output || 'certificate', test: !!d.test, recovered: true } });
 });
 
+// The other version of an existing artwork, made in the browser from the identical image (no AI,
+// no cost): wood-burning ↔ certificate. Stored like any artwork.
+route('POST', '/api/art/derived', async ({ env, request, user, url }) => {
+  const from = url.searchParams.get('from') || '';
+  if (!from.startsWith(`art/${user.id}/`)) return err('Artwork not found.', 404);
+  const output = url.searchParams.get('output') === 'pyrography' ? 'pyrography' : 'certificate';
+  const layout = LAYOUTS[url.searchParams.get('layout')] ? url.searchParams.get('layout') : 'framed';
+  const type = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (type !== 'image/jpeg' && type !== 'image/png') return err('Unsupported image.', 415);
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (!bytes.length || bytes.length > 15 * 1048576) return err('That image is too large.', 413);
+  const id = uid('a_');
+  const key = `art/${user.id}/${id}`;
+  await env.ART.put(key, bytes, { httpMetadata: { contentType: type } });
+  return json({ art: { key, url: `/api/${key}`, contentType: type, width: 1536, height: 1024, layout, output, derivedFrom: from } });
+});
+
 // ---------- photos the user adds to a design (private, owner only) ----------
 const PHOTO_TYPES = { 'image/jpeg': 1, 'image/png': 1, 'image/webp': 1 };
 route('POST', '/api/photos', async ({ env, request, user }) => {

@@ -219,3 +219,36 @@ export async function prepareUpload(file, maxEdge = 2400) {
     URL.revokeObjectURL(url);
   }
 }
+
+// ---------------- the other version of the same artwork (no AI) ----------------
+// Wood-burning version of a certificate: the identical artwork run through the same pencil-drawing
+// conversion as "Exact graphite" photos. Certificate version of a design that started as a
+// wood-burning pattern: the identical drawing printed as sepia ink on parchment (there is no colour
+// information to recover without the AI inventing it).
+export const PARCHMENT = [244, 234, 213];
+export const SEPIA_INK = [58, 38, 22];
+
+export async function deriveArtCanvas(art, to) {
+  const w = art.width || 1536, h = art.height || 1024;
+  if (to === 'pyrography') {
+    return renderPhotoCanvas(
+      { url: art.url, key: art.key, mode: 'graphite', shape: 'full', fade: 0, zoom: 1, fx: 0.5, fy: 0.5, w, h, shading: 0.5, detail: 0.65 },
+      Math.max(w, h)
+    );
+  }
+  const img = await loadSource(art.url);
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth || w; c.height = img.naturalHeight || h;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.fillStyle = '#fff';
+  g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(img, 0, 0, c.width, c.height);
+  const im = g.getImageData(0, 0, c.width, c.height);
+  const d = im.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+    for (let k = 0; k < 3; k++) d[i + k] = SEPIA_INK[k] + (PARCHMENT[k] - SEPIA_INK[k]) * v;
+  }
+  g.putImageData(im, 0, 0);
+  return c;
+}

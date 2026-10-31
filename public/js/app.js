@@ -3,7 +3,7 @@ import { LAYOUT_LABELS } from './layout.js';
 import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js';
 import { CHIPS, loadLibrary, searchLibrary } from './library.js';
 import { detectZone } from './zone.js';
-import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload } from './photo.js';
+import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js';
 import { zoneFor } from './layout.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -370,7 +370,7 @@ function syncArtSection() {
   $('#variationBtn').disabled = busy;
   $('#switchOutputBtn').disabled = busy;
   $('#redrawBtn').textContent = state.pendingLayout ? 'Redraw with new composition' : 'Redraw with change';
-  $('#switchOutputBtn').textContent = p.output === 'pyrography' ? 'Make a full-color certificate version' : 'Make a wood-burning pattern version';
+  $('#switchOutputBtn').textContent = p.output === 'pyrography' ? 'Make the certificate version (same design)' : 'Make the wood-burning version (same design)';
   // versions
   const v = $('#versions');
   v.hidden = p.artHistory.length < 2;
@@ -404,10 +404,64 @@ $('#redrawBtn').addEventListener('click', () => {
   generateArt({ tweak, layout: state.pendingLayout || undefined });
 });
 $('#variationBtn').addEventListener('click', () => generateArt({ layout: state.pendingLayout || undefined, seed: String(Date.now()) }));
-$('#switchOutputBtn').addEventListener('click', () => {
-  const to = state.project.output === 'pyrography' ? 'certificate' : 'pyrography';
-  generateArt({ output: to });
-});
+$('#switchOutputBtn').addEventListener('click', () => convertOutput(state.project.output === 'pyrography' ? 'certificate' : 'pyrography'));
+
+// The two versions of a design are always the identical artwork — never a fresh AI drawing.
+// Certificate → wood-burning: graphite conversion of the same image. Wood-burning → certificate: the
+// certificate it was made from, or (if it started as a pattern) the same drawing in sepia on parchment.
+const sameOutput = (a, o) => (a.output === 'pyrography' ? 'pyrography' : 'certificate') === o;
+async function convertOutput(to) {
+  const p = state.project;
+  if (!p || state.busyArt) return;
+  const src = p.art;
+  if (!src) return generateArt({ output: to }); // nothing to convert yet
+  const partner = [...p.artHistory].reverse().find((a) => sameOutput(a, to) && (a.derivedFrom === src.key || src.derivedFrom === a.key));
+  if (partner) {
+    useArtVersion(p, partner);
+    adjustPhotoFor(p, to);
+    syncLettering(); syncArtSection(); syncPhoto(); updateSummaries(); render(); markDirty();
+    toast(to === 'pyrography' ? 'Wood-burning version ✓ Same design.' : 'Certificate version ✓ Same design.');
+    return;
+  }
+  state.busyArt = true;
+  syncArtSection();
+  setArtStatus('busy', `<div class="spinner"></div><span>${to === 'pyrography' ? 'Making the wood-burning version from this exact design…' : 'Making the certificate version from this exact design…'}</span>`);
+  try {
+    const canvas = await deriveArtCanvas(src, to);
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+    const q = new URLSearchParams({ from: src.key, output: to, layout: src.layout || p.plan.layout || 'framed' });
+    let res;
+    try {
+      res = await fetch('/api/art/derived?' + q, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'image/jpeg' }, body: blob });
+    } catch { throw new Error('No connection — please try again.'); }
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) return needAuth(() => convertOutput(to));
+    if (!res.ok) throw new Error(data.error || 'That version couldn’t be made.');
+    // same composition, so the same measured lettering area and the same painted-in photo
+    const art = { ...data.art, ...(src.zone ? { zone: src.zone } : {}), ...(src.fromPhoto ? { fromPhoto: src.fromPhoto } : {}) };
+    p.artHistory.push(art);
+    if (p.artHistory.length > 24) p.artHistory.shift();
+    useArtVersion(p, art);
+    adjustPhotoFor(p, to);
+    setArtStatus(null);
+    toast(to === 'pyrography'
+      ? 'Wood-burning version ready ✓ Same design as a graphite drawing.'
+      : 'Certificate version ready ✓ Same drawing in sepia on parchment.', { ms: 4200 });
+  } catch (e) {
+    setArtStatus('err', `<span>${e.message}</span>`);
+  } finally {
+    state.busyArt = false;
+    syncLettering(); syncArtSection(); syncPhoto(); updateSummaries(); render(); markDirty();
+  }
+}
+
+// a color photo on a wood-burning pattern becomes the graphite version of the same photo, and back
+function adjustPhotoFor(p, to) {
+  const ph = p.photo;
+  if (!ph) return;
+  if (to === 'pyrography' && ph.mode === 'color') Object.assign(ph, { mode: 'graphite', wasColor: true });
+  else if (to === 'certificate' && ph.wasColor && ph.mode === 'graphite') { ph.mode = 'color'; delete ph.wasColor; }
+}
 
 function setArtStatus(kind, html) {
   const el = $('#artStatus');

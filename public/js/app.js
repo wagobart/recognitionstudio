@@ -382,7 +382,7 @@ function syncArtSection() {
   // AI-artwork controls only make sense when there is artwork
   for (const el of [$('#tweakInput').closest('.fld'), $('#redrawBtn').closest('.btn-row'), $('#layoutChips').closest('.layout-row'), $('#artPromptInput').closest('details'), $('#designNotes')])
     el.hidden = plain;
-  $('#noArtBtn').hidden = plain || !p.art || busy;
+  $('#noArtBtn').hidden = plain || busy;
   // versions
   const v = $('#versions');
   v.hidden = p.artHistory.length < 2;
@@ -1324,7 +1324,11 @@ function loadIntoEditor(p) {
   setView('editor');
   stageOverlay(null);
   setArtStatus(null);
-  if (!p.art && !p.plainBg) setArtStatus('err', `<span>This design has no artwork yet.</span><button class="ghost-btn small" id="retryArt3">Create artwork</button>`), $('#retryArt3')?.addEventListener('click', () => generateArt());
+  if (!p.art && !p.plainBg) {
+    setArtStatus('err', `<span>This design has no artwork yet.</span><button class="ghost-btn small" id="retryArt3">Create artwork</button><button class="text-btn" id="noArt3">Use no artwork</button>`);
+    $('#retryArt3')?.addEventListener('click', () => generateArt());
+    $('#noArt3')?.addEventListener('click', () => $('#noArtBtn').click());
+  }
   fillForm();
   render();
   // older designs: measure the empty area once

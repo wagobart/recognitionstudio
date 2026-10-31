@@ -47,16 +47,18 @@ svg { flex: none; }
   .brand { font-size: 16px; gap: 6px; white-space: nowrap; }
   .brand-mark { width: 24px; height: 24px; }
   .mode-badge { font-size: 9.5px; padding: 1px 5px; }
-  #accountBtn { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  #accountBtn.signed-in span { display: none; } /* phones: person icon only; full email in the Account sheet */
 }
 @media (max-width: 370px) { .brand em { display: none; } }
 /* header never wider than the screen: the brand name and account name give way first */
 .top { min-width: 0; }
-.brand { min-width: 0; flex-shrink: 1; overflow: hidden; }
+.brand { min-width: 0; flex-shrink: 20; overflow: hidden; }
 .brand > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mode-badge { flex-shrink: 0; }
 .top-nav { min-width: 0; flex-shrink: 1; }
-#accountBtn { min-width: 0; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+#accountBtn { flex-shrink: 0; white-space: nowrap; }
+#accountBtn span { display: inline-block; vertical-align: middle; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.top-nav { flex-shrink: 0; }
 @media (max-width: 480px) { .mode-badge { font-size: 0; padding: 2px 5px; } .mode-badge::after { content: 'Test'; font-size: 9.5px; } }
 
 /* ---------- buttons ---------- */

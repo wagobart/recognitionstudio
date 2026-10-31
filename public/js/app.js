@@ -548,7 +548,7 @@ async function startDesign() {
   const idea = $('#idea').value.trim();
   if (idea.length < 3) {
     $('#idea').focus();
-    toast('Describe who it’s for and what you’re celebrating — or browse ideas.');
+    toast('Describe who it’s for and the occasion — or browse ideas.');
     return;
   }
   if (!state.user) return needAuth(startDesign);
@@ -886,6 +886,7 @@ async function openProjects() {
 function projectCard(pr, output) {
   const card = document.createElement('div');
   card.className = 'proj';
+  card.dataset.id = pr.id;
   const other = output === 'pyrography' ? 'certificate' : 'pyrography';
   const both = pr.versions?.[other];
   card.innerHTML = `<button class="proj-open" type="button"><div class="proj-thumb"></div><div class="proj-info"><b></b><small></small></div></button>
@@ -1049,8 +1050,14 @@ $('#signOutBtn').addEventListener('click', async () => {
 
 function syncAccountUi() {
   const u = state.user;
-  $('#accountBtn').textContent = u ? u.email.split('@')[0].slice(0, 14) : 'Sign in';
-  $('#accountBtn').title = u ? u.email : '';
+  const b = $('#accountBtn');
+  b.innerHTML = u
+    ? `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 19.5c1.2-3.3 3.9-5 7-5s5.8 1.7 7 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span></span>`
+    : '<span>Sign in</span>';
+  if (u) b.querySelector('span').textContent = u.email.split('@')[0];
+  b.title = u ? u.email : '';
+  b.setAttribute('aria-label', u ? `Account (${u.email})` : 'Sign in');
+  b.classList.toggle('signed-in', !!u);
   $('#projectsBtn').hidden = !u;
 }
 

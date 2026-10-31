@@ -87,7 +87,7 @@ route('POST', '/api/plan', async ({ env, request, user }) => {
   const body = await readJson(request);
   const idea = clean(body.idea, 1500);
   const output = body.output === 'pyrography' ? 'pyrography' : 'certificate';
-  if (idea.length < 3) return err('Tell us a little about who this is for and what you are celebrating.');
+  if (idea.length < 3) return err('Tell us a little about who this is for and the occasion.');
   if (isMock(env)) return json({ plan: localPlan({ idea, output }), source: 'test' });
   const L = limits(env);
   const u = await usage(env, user.id);

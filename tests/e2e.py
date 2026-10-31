@@ -171,10 +171,9 @@ async def run_case(browser, c, results):
     await pg2.wait_for_selector('.proj')
     await pg2.screenshot(path=f"{OUT}/projects-list.png")
     await pg2.evaluate(f"(async()=>{{}})()")
-    cards = await pg2.query_selector_all('.proj')
     # open the matching project via its menu-less button order: find by id through API listing
-    idx = await pg2.evaluate(f"fetch('/api/projects').then(r=>r.json()).then(d=>d.projects.findIndex(p=>p.id==='{pid}'))")
-    await (await cards[idx].query_selector('.proj-open')).click()
+    # open it from the section matching its type (projects are grouped by output)
+    await pg2.click(f".proj-sec[data-output={c['output']}] .proj[data-id='{pid}'] .proj-open")
     await pg2.wait_for_function(f"window.__rs.state.project && window.__rs.state.project.id==='{pid}'")
     after = await pg2.evaluate("JSON.stringify({t: window.__rs.state.project.text, s: window.__rs.state.project.style, a: window.__rs.state.project.art.key})")
     await ctx2.close()

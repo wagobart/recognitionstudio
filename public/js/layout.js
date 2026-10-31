@@ -72,14 +72,18 @@ export function splitForPhoto(project, full) {
   const a = photoAspect(ph);
   const size = Math.min(1.5, Math.max(0.5, ph.size || 1));
   if (ph.place === 'top') {
-    let h = full.h * 0.36 * size, w = h * a;
+    const base = Math.min(full.h * 0.36, (full.w * 0.45) / a);
+    let h = Math.min(base * size, full.h * 0.62), w = h * a;
     if (w > full.w * 0.7) { w = full.w * 0.7; h = w / a; }
     const gap = full.h * 0.03;
     const photo = { x: full.x + (full.w - w) / 2, y: full.y, w, h };
     return { photo, zone: { x: full.x, y: full.y + h + gap, w: full.w, h: Math.max(full.h * 0.3, full.h - h - gap) } };
   }
-  let w = full.w * 0.36 * size, h = w / a;
-  if (h > full.h * 0.94) { h = full.h * 0.94; w = h * a; }
+  // base size at 100% fits comfortably in the area whichever way it's tight (narrow or short),
+  // so the Size slider always has room to work; only the extremes are capped
+  const base = Math.min((full.w * 0.36) / a, full.h * 0.78);
+  let h = Math.min(base * size, full.h * 0.98), w = h * a;
+  if (w > full.w * 0.55) { w = full.w * 0.55; h = w / a; }
   const gap = full.w * 0.035;
   const y = full.y + (full.h - h) / 2;
   const right = ph.place === 'right';

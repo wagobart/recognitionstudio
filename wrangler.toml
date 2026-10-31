@@ -1,0 +1,27 @@
+name = "recognition-studio"
+compatibility_date = "2026-10-01"
+pages_build_output_dir = "public"
+
+# NOTE: values in [vars] override the Cloudflare dashboard on every deploy.
+# The OpenAI key is NOT here — it is a Pages *secret* (see README "OpenAI key").
+[vars]
+AI_MODE = "live"                    # "mock" = free test artwork, no OpenAI calls
+IMAGE_MODEL = "gpt-image-2.5-sunburst"
+IMAGE_SIZE = "1536x1024"
+IMAGE_QUALITY = "high"
+PLANNER_MODEL = "gpt-4.1-mini"
+SIGNUP_MODE = "invite"              # "invite" = only ALLOWED_EMAILS can create accounts; "open" = anyone
+ALLOWED_EMAILS = "wagobart@gmail.com"
+DAILY_ART_LIMIT = "30"              # artwork generations per user per 24h
+MONTHLY_BUDGET_USD = "25"           # app-side ceiling on estimated monthly AI spend (all users)
+EST_COST_PER_IMAGE = "0.25"         # estimate used by the budget guard; tune from the OpenAI usage dashboard
+EST_COST_PER_PLAN = "0.01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "recognition-studio"
+database_id = "0e69c3fc-10bf-4d7d-8176-c228c6bb7b7a"
+
+[[r2_buckets]]
+binding = "ART"
+bucket_name = "recognition-studio-art"

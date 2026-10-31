@@ -1,0 +1,543 @@
+// Builds public/data/prompts.json — the editable idea library.
+// Each entry is a starting point for the AI designer (not a fixed template):
+//   { id, c: category, o: occasion, t: short title, p: editable prompt text, k: search keywords }
+import { writeFileSync, mkdirSync } from 'node:fs';
+
+const out = [];
+const seen = new Set();
+const add = (c, o, t, p, k = '') => {
+  const id = (c + '-' + t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  if (seen.has(id)) return;
+  seen.add(id);
+  out.push({ id, c, o, t, p, k });
+};
+
+// ---------------- Careers: [title, category, motifs, palette, extra occasions] ----------------
+const careers = [
+  // Trades & construction
+  ['Union carpenter', 'Trades & Construction', 'a leather tool belt with hammer, tape measure, framing square and carpenter’s pencil, oak leaves and wood-grain scrollwork', 'warm oak, brass and parchment', ['apprentice']],
+  ['Electrician', 'Trades & Construction', 'coiled copper wire, lineman pliers, a voltage tester and glowing Edison bulbs linked by flowing conduit', 'copper, deep navy and cream', ['apprentice']],
+  ['Plumber', 'Trades & Construction', 'polished copper pipe fittings, a pipe wrench, valves and gentle water ripples', 'copper, teal and cream', ['apprentice']],
+  ['Pipefitter', 'Trades & Construction', 'flanged steel pipe runs, a pipe wrench, pressure gauges and welded elbows forming the frame', 'steel blue, brass and parchment', ['apprentice']],
+  ['Welder', 'Trades & Construction', 'a welding helmet, MIG torch, bright arc sparks and clean weld beads joining steel plates', 'charcoal, ember orange and steel', ['apprentice']],
+  ['Ironworker', 'Trades & Construction', 'steel I-beams, rivets, a spud wrench and a city skyline under construction', 'steel gray, rust red and cream', ['apprentice']],
+  ['Bricklayer and mason', 'Trades & Construction', 'a brick trowel, mason’s level, neat running-bond brickwork and a stone archway', 'brick red, sandstone and cream', ['apprentice']],
+  ['Concrete finisher', 'Trades & Construction', 'a bull float, edger and hand trowels over smooth poured concrete with crisp control joints', 'cool gray, safety yellow and cream', ['apprentice']],
+  ['Roofer', 'Trades & Construction', 'neatly lapped shingles, a roofing hammer, nail gun and a roofline against a sunrise', 'slate, terracotta and cream', []],
+  ['Painter and decorator', 'Trades & Construction', 'brushes, a roller, paint cans and sweeping swatches of color', 'rich paint swatch colors on cream', ['apprentice']],
+  ['Drywall finisher', 'Trades & Construction', 'taping knives, a mud pan, stilts and crisp corner bead', 'soft white, gray and gold', []],
+  ['Heavy equipment operator', 'Trades & Construction', 'an excavator, bulldozer and hard hat on a construction site at golden hour', 'construction yellow, black and sky blue', ['apprentice']],
+  ['Crane operator', 'Trades & Construction', 'a tower crane lifting a steel beam over a rising skyline', 'safety yellow, steel and dusk blue', []],
+  ['Lineman', 'Trades & Construction', 'utility poles, power lines, climbing hooks and a lineman’s belt against a stormy sky', 'storm blue, copper and white', ['apprentice']],
+  ['HVAC technician', 'Trades & Construction', 'ductwork, a manifold gauge set, refrigerant lines and a fan blade emblem', 'cool blue, warm red and silver', ['apprentice']],
+  ['Millwright', 'Trades & Construction', 'precision gears, a dial indicator, shaft alignment tools and machine bearings', 'machine green, brass and steel', ['apprentice']],
+  ['Machinist', 'Trades & Construction', 'a lathe, micrometer, end mills and curling metal shavings', 'steel, oil-black and brass', ['apprentice']],
+  ['Sheet metal worker', 'Trades & Construction', 'snips, seamers, folded sheet metal and spiral duct', 'galvanized silver and navy', ['apprentice']],
+  ['Glazier', 'Trades & Construction', 'large glass panes, suction cups, a glass cutter and a reflective tower facade', 'sky blue, silver and white', []],
+  ['Tile setter', 'Trades & Construction', 'a notched trowel, tile nippers and a mosaic of patterned tiles', 'terracotta, cobalt and cream', []],
+  ['Cabinetmaker', 'Trades & Construction', 'dovetail joints, chisels, a hand plane with curled shavings and walnut cabinetry', 'walnut, honey and cream', []],
+  ['Surveyor', 'Trades & Construction', 'a theodolite on a tripod, survey stakes, a compass rose and topographic contour lines', 'forest green, ochre and parchment', []],
+  ['General contractor', 'Trades & Construction', 'blueprints, a hard hat, framing lumber and a finished home taking shape', 'blueprint blue, wood and cream', []],
+  ['Construction superintendent', 'Trades & Construction', 'rolled blueprints, a hard hat, safety cones and a completed building', 'navy, safety orange and cream', []],
+  ['Locksmith', 'Trades & Construction', 'antique keys, tumblers, a key-cutting machine and ornate keyholes', 'brass, deep red and cream', []],
+  ['Auto mechanic', 'Trades & Construction', 'wrenches, a socket set, a classic engine block and a shop creeper', 'garage red, chrome and black', ['apprentice']],
+  ['Diesel technician', 'Trades & Construction', 'a diesel engine, big rig, torque wrench and diagnostic tablet', 'chrome, black and safety orange', []],
+  ['Truck driver', 'Transportation', 'a long-haul semi truck on an open highway at sunrise with mile markers', 'chrome, sunrise orange and blue', ['miles']],
+  ['Railroad worker', 'Transportation', 'a locomotive, rail spikes, a lantern and railroad tracks converging into the distance', 'iron black, brass and red', []],
+  ['Airline pilot', 'Transportation', 'aviator wings, a jetliner above the clouds, an altimeter and a compass rose', 'sky blue, gold and white', []],
+  ['Aircraft mechanic', 'Transportation', 'a turbine engine, safety-wired bolts, a torque wrench and a hangar', 'steel, navy and gold', []],
+  ['Bus driver', 'Transportation', 'a city bus on a tree-lined route, route signs and a steering wheel', 'transit yellow, green and cream', []],
+  ['Mail carrier', 'Public Service', 'a mail satchel, letters, stamps and a neighborhood route', 'postal blue, red and cream', []],
+  // Healthcare
+  ['Registered nurse', 'Healthcare', 'a stethoscope, nursing cap, caring hands and a gentle heartbeat line woven with laurel', 'soft navy, rose and white', ['nurses']],
+  ['Physician', 'Healthcare', 'a stethoscope, the rod of Asclepius, a medical bag and laurel', 'deep blue, gold and white', []],
+  ['Surgeon', 'Healthcare', 'surgical instruments, an operating lamp and the rod of Asclepius', 'surgical teal, silver and white', []],
+  ['Pharmacist', 'Healthcare', 'a mortar and pestle, apothecary bottles and the bowl of Hygieia', 'apothecary green, amber and cream', []],
+  ['Paramedic', 'Healthcare', 'the Star of Life, an ambulance and a heartbeat line', 'emergency blue, red and white', []],
+  ['Dentist', 'Healthcare', 'dental instruments, a bright smile motif and a tooth emblem with laurel', 'mint, silver and white', []],
+  ['Dental hygienist', 'Healthcare', 'a toothbrush, floss, dental mirror and sparkling smile motifs', 'mint, lavender and white', []],
+  ['Physical therapist', 'Healthcare', 'resistance bands, a balance ball, a human figure in motion and a supportive hand', 'vital green, blue and white', []],
+  ['Veterinarian', 'Healthcare', 'a stethoscope with dogs, cats, horses and farm animals and paw prints', 'sage green, warm brown and cream', []],
+  ['Hospice caregiver', 'Healthcare', 'gentle hands, soft light, doves and quiet garden flowers', 'lavender, soft gold and cream', []],
+  ['Home health aide', 'Healthcare', 'a welcoming front door, caring hands, a teacup and a heart', 'warm rose, sage and cream', []],
+  ['Medical laboratory scientist', 'Healthcare', 'a microscope, test tubes, petri dishes and DNA helix scrollwork', 'lab blue, violet and white', []],
+  ['Radiology technologist', 'Healthcare', 'X-ray film of a hand, an imaging machine and radiant light rays', 'cool blue, black and silver', []],
+  ['Respiratory therapist', 'Healthcare', 'lungs illustrated as branching trees, a stethoscope and gentle breath lines', 'sky blue, green and white', []],
+  ['Midwife', 'Healthcare', 'cradling hands, a tiny newborn footprint, a crescent moon and stars', 'blush, gold and cream', []],
+  ['Mental health counselor', 'Healthcare', 'a sprouting tree, an open door with light, and two comfortable chairs', 'calm teal, gold and cream', []],
+  // Education
+  ['Elementary school teacher', 'Education', 'an apple, chalkboard, crayons, alphabet blocks and a stack of books', 'school red, chalk green and cream', ['teacher']],
+  ['High school teacher', 'Education', 'books, a globe, a lamp of learning and a school building', 'navy, gold and cream', ['teacher']],
+  ['Math teacher', 'Education', 'a compass, protractor, geometric shapes and elegant equations motifs without readable text', 'graphite, gold and cream', ['teacher']],
+  ['Science teacher', 'Education', 'beakers, an atom, a microscope and planets', 'lab green, violet and cream', ['teacher']],
+  ['Music teacher', 'Education', 'a grand staff of notes, a violin, trumpet and piano keys', 'black, gold and ivory', ['teacher']],
+  ['Art teacher', 'Education', 'paintbrushes, a palette, colored pencils and splashes of color', 'vibrant primary colors on cream', ['teacher']],
+  ['Physical education teacher', 'Education', 'a whistle, stopwatch, balls of many sports and a track', 'athletic red, blue and white', ['teacher']],
+  ['Special education teacher', 'Education', 'puzzle pieces, helping hands, a growing plant and stars', 'rainbow pastels on cream', ['teacher']],
+  ['School principal', 'Education', 'a school bell, a key, an open book and a stately schoolhouse', 'burgundy, gold and cream', []],
+  ['School librarian', 'Education', 'towering bookshelves, a reading lamp and open books with flying pages', 'library green, mahogany and gold', []],
+  ['College professor', 'Education', 'a mortarboard, ivy-covered halls, books and a lamp of knowledge', 'collegiate crimson, gold and ivory', []],
+  ['School bus driver', 'Education', 'a yellow school bus on a country road with waving children silhouettes', 'school-bus yellow, black and sky blue', []],
+  ['School custodian', 'Education', 'a gleaming hallway, a mop and bucket, a ring of keys and a polished trophy case', 'warm gold, green and cream', []],
+  ['School cafeteria cook', 'Education', 'a chef’s hat, lunch trays, apples and steaming pots', 'apple red, cream and teal', []],
+  ['Paraprofessional', 'Education', 'two helping hands, crayons, books and a gold star', 'sunny yellow, blue and cream', []],
+  // Public service
+  ['Police officer', 'Public Service', 'a police badge, thin blue line, laurel and a city skyline', 'navy, silver and gold', []],
+  ['Firefighter', 'Public Service', 'a Maltese cross, helmet, axes, hose and a ladder truck', 'fire red, gold and black', []],
+  ['Sheriff’s deputy', 'Public Service', 'a star badge, patrol car, laurel and wide-open county roads', 'tan, forest green and gold', []],
+  ['911 dispatcher', 'Public Service', 'a headset, radio waves, a city map and a guiding star', 'midnight blue, gold and white', []],
+  ['Corrections officer', 'Public Service', 'a badge, keys, laurel and a strong shield emblem', 'charcoal, gold and navy', []],
+  ['Game warden', 'Public Service', 'a conservation badge, deer, ducks, pines and a lake', 'forest green, tan and gold', []],
+  ['Park ranger', 'Public Service', 'a ranger hat, mountains, pines and a campfire', 'forest green, tan and sky blue', []],
+  ['City employee', 'Public Service', 'a city hall, streetlights, park benches and laurel', 'civic blue, gold and cream', []],
+  ['Public works crew', 'Public Service', 'a snowplow, road signs, a dump truck and orange cones', 'safety orange, steel and white', []],
+  ['Librarian', 'Public Service', 'a grand library reading room, books and a brass reading lamp', 'mahogany, green and gold', []],
+  ['Judge', 'Public Service', 'scales of justice, a gavel, classical columns and laurel', 'burgundy, gold and ivory', []],
+  ['Elected official', 'Public Service', 'a courthouse dome, laurel, a gavel and a flag motif without stars-and-stripes text', 'navy, gold and ivory', []],
+  ['Social worker', 'Public Service', 'interlocking hands, a house, a heart and a growing tree', 'warm teal, coral and cream', []],
+  // Office & business
+  ['Accountant', 'Business & Office', 'a ledger, adding machine, calculator, fountain pen and neat columns of figures without readable text', 'forest green, gold and cream', []],
+  ['Payroll specialist', 'Business & Office', 'a calendar, calculator, paychecks shown as blank cheques and a clock', 'green, gold and cream', []],
+  ['Sales professional', 'Business & Office', 'a rising arrow chart, handshake, trophy and city skyline', 'royal blue, gold and white', ['sales']],
+  ['Customer service representative', 'Business & Office', 'a headset, smiling speech bubbles, stars and a heart', 'friendly teal, gold and white', []],
+  ['Office manager', 'Business & Office', 'a desk organizer, coffee mug, calendar, keys and a smoothly running office', 'navy, coral and cream', []],
+  ['Executive assistant', 'Business & Office', 'a planner, fountain pen, phone and a perfectly organized desk', 'charcoal, gold and cream', []],
+  ['Human resources professional', 'Business & Office', 'diverse figures holding hands, a handshake and a growing tree', 'teal, coral and cream', []],
+  ['IT support technician', 'Business & Office', 'a laptop, network cables, a server rack and a friendly wrench-and-gear emblem', 'tech blue, green and white', []],
+  ['Software engineer', 'Business & Office', 'abstract code brackets, circuit traces, a laptop and a rocket launching', 'midnight blue, cyan and white', []],
+  ['Project manager', 'Business & Office', 'a Gantt-chart ribbon, milestones as flags, a compass and a finish line', 'navy, orange and cream', []],
+  ['Service delivery manager', 'Business & Office', 'a dashboard of gauges, connected network nodes, a headset and a compass rose', 'deep blue, teal and silver', []],
+  ['Banker', 'Business & Office', 'a classical bank facade, gold coins, a vault door and laurel', 'forest green, gold and ivory', []],
+  ['Insurance agent', 'Business & Office', 'an umbrella over a home and family, a shield and laurel', 'navy, gold and cream', []],
+  ['Real estate agent', 'Business & Office', 'house keys, a sold sign without words, a welcoming front porch and a neighborhood', 'navy, warm gold and cream', ['sales']],
+  ['Lawyer', 'Business & Office', 'scales of justice, law books, a fountain pen and classical columns', 'burgundy, gold and ivory', []],
+  ['Paralegal', 'Business & Office', 'case files, law books, a fountain pen and a scales-of-justice emblem', 'navy, gold and cream', []],
+  ['Architect', 'Business & Office', 'drafting tools, a T-square, blueprints and an elegant building elevation', 'blueprint blue, white and gold', []],
+  ['Engineer', 'Business & Office', 'gears, a slide rule, a suspension bridge and technical drawings without readable text', 'steel blue, brass and cream', []],
+  ['Warehouse associate', 'Business & Office', 'a forklift, pallets of boxes, a hand truck and a loading dock', 'safety yellow, cardboard brown and gray', []],
+  ['Factory worker', 'Business & Office', 'an assembly line, gears, a hard hat and a lunch pail', 'industrial blue, orange and gray', []],
+  ['Restaurant chef', 'Hospitality', 'a chef’s knife, copper pots, herbs, a toque and flames', 'copper, herb green and cream', []],
+  ['Baker', 'Hospitality', 'a rolling pin, wheat sheaves, rustic bread loaves and a whisk', 'golden wheat, flour white and brown', []],
+  ['Server and bartender', 'Hospitality', 'a cocktail shaker, wine glasses, a tray and string lights', 'deep burgundy, gold and black', []],
+  ['Hotel staff member', 'Hospitality', 'a front-desk bell, room keys, a grand lobby and welcoming doors', 'navy, gold and cream', []],
+  ['Barber', 'Hospitality', 'a barber pole, straight razor, scissors and comb', 'barber red, blue and white', []],
+  ['Hair stylist', 'Hospitality', 'shears, a comb, hairdryer and flowing ribbons of hair', 'rose gold, black and blush', []],
+  ['Grocery store employee', 'Hospitality', 'a shopping cart, fresh produce, a checkout lane and paper bags', 'fresh green, red and cream', []],
+  // Agriculture & outdoors
+  ['Farmer', 'Agriculture & Outdoors', 'a red barn, tractor, wheat sheaves, a windmill and rolling fields', 'barn red, golden wheat and sky blue', []],
+  ['Dairy farmer', 'Agriculture & Outdoors', 'Holstein cows, a milk can, a red barn and green pasture', 'barn red, black-and-white and green', []],
+  ['Rancher', 'Agriculture & Outdoors', 'cattle, a lasso, cowboy hat, barbed wire and a ranch gate', 'saddle brown, sage and sunset orange', []],
+  ['Agronomist', 'Agriculture & Outdoors', 'corn and soybean plants, soil layers, a magnifier and fields', 'field green, soil brown and gold', []],
+  ['Forester', 'Agriculture & Outdoors', 'towering pines, a forester’s axe, tree rings and a ranger tower', 'forest green, bark brown and cream', []],
+  ['Landscaper', 'Agriculture & Outdoors', 'a lawn mower, pruning shears, shrubs and flowering beds', 'leaf green, terracotta and cream', []],
+  ['Commercial fisherman', 'Agriculture & Outdoors', 'a fishing boat, nets, buoys, an anchor and waves', 'sea blue, rope tan and white', []],
+  ['Beekeeper', 'Agriculture & Outdoors', 'honeycomb, bees, a hive and wildflowers', 'honey gold, black and cream', []],
+  ['Grain elevator operator', 'Agriculture & Outdoors', 'a prairie grain elevator, trucks, wheat and a big sky', 'golden wheat, red and sky blue', []],
+  // Arts & media
+  ['Musician', 'Arts & Media', 'a guitar, piano keys, a microphone and flowing music notes', 'black, gold and ivory', []],
+  ['Church organist', 'Arts & Media', 'pipe organ pipes, a hymnal, stained glass and music notes', 'deep burgundy, gold and ivory', []],
+  ['Photographer', 'Arts & Media', 'a vintage camera, lens, film strips and an aperture emblem', 'charcoal, silver and cream', []],
+  ['Graphic designer', 'Arts & Media', 'a pen tool curve, color swatches, a grid and a stylus', 'bold modern brights on white', []],
+  ['Writer and journalist', 'Arts & Media', 'a typewriter, fountain pen, newspapers and flying pages', 'ink black, sepia and cream', []],
+  ['Radio broadcaster', 'Arts & Media', 'a vintage microphone, radio tower, sound waves and headphones', 'on-air red, chrome and black', []],
+  ['Theater director', 'Arts & Media', 'stage curtains, comedy and tragedy masks, spotlights and a director’s chair', 'velvet red, gold and black', []],
+  ['Pyrography artist', 'Arts & Media', 'a wood-burning pen, curling smoke, a basswood round and burned floral designs', 'toasted wood, sepia and cream', []],
+  ['Woodturner', 'Arts & Media', 'a lathe, turning gouges, a finished bowl and spiraling shavings', 'honey maple, walnut and cream', []],
+  ['Quilter', 'Arts & Media', 'patchwork quilt blocks, a thimble, spools of thread and scissors', 'calico blues, reds and cream', []],
+  // Faith & community
+  ['Pastor', 'Faith & Community', 'a church steeple, an open Bible, a dove and stained glass', 'deep purple, gold and ivory', []],
+  ['Church volunteer', 'Faith & Community', 'a church, helping hands, a coffee urn and a dove', 'warm gold, blue and cream', []],
+  ['Youth leader', 'Faith & Community', 'a campfire, guitar, backpacks and a sunrise over hills', 'sunrise orange, forest green and cream', []],
+  ['Food bank volunteer', 'Faith & Community', 'crates of fresh food, helping hands and a heart', 'harvest orange, green and cream', []],
+  ['Habitat builder', 'Faith & Community', 'a house frame, hammers, helping hands and a heart', 'warm wood, blue and cream', []],
+  ['Little league coach', 'Sports & Coaching', 'a baseball diamond, bats, a glove and a scoreboard without numbers', 'grass green, clay red and white', []],
+];
+
+const occCareer = {
+  retire: (n, m, pal) => [`${n} retirement`, 'Retirement', `Retirement recognition for a ${n.toLowerCase()} after a long career — ${m}, with a celebratory, heartfelt feel; ${pal} tones.`],
+  service: (n, m, pal) => [`${n} years of service`, 'Years of Service', `Years-of-service award for a ${n.toLowerCase()} — ${m}, with a laurel and a sense of steady dedication; ${pal} tones.`],
+  excellence: (n, m, pal) => [`${n} excellence award`, 'Excellence', `Award of excellence for an outstanding ${n.toLowerCase()} — ${m}, with a bright, proud, polished look; ${pal} tones.`],
+  thanks: (n, m, pal) => [`Thank you, ${n.toLowerCase()}`, 'Appreciation', `Certificate of appreciation thanking a ${n.toLowerCase()} — ${m}, warm and personal rather than formal; ${pal} tones.`],
+  apprentice: (n, m, pal) => [`${n} apprenticeship completion`, 'Completion & Certification', `Apprenticeship completion / journey-level certificate for a ${n.toLowerCase()} — ${m}, formal and official-looking with a ribboned seal shape left blank; ${pal} tones.`],
+  teacher: (n, m, pal) => [`${n} appreciation week`, 'Appreciation', `Teacher appreciation award for a ${n.toLowerCase()} — ${m}, cheerful and heartfelt; ${pal} tones.`],
+  nurses: (n, m, pal) => [`Nurses week award`, 'Appreciation', `Nurses Week recognition for a ${n.toLowerCase()} — ${m}, compassionate and uplifting; ${pal} tones.`],
+  sales: (n, m, pal) => [`${n} top performer`, 'Excellence', `Top performer award for a ${n.toLowerCase()} who beat their goals — ${m}, energetic and premium; ${pal} tones.`],
+  miles: (n, m, pal) => [`${n} million-mile safety award`, 'Safety', `Safe-driving milestone award for a ${n.toLowerCase()} — ${m}, proud and bold; ${pal} tones.`],
+};
+for (const [n, cat, m, pal, extra] of careers) {
+  for (const key of ['retire', 'service', 'excellence', 'thanks', ...extra]) {
+    const [t, o, p] = occCareer[key](n, m, pal);
+    add(cat, o, t, p, n);
+  }
+  // safety awards for trades
+  if (cat === 'Trades & Construction') add(cat, 'Safety', `${n} safety record award`, `Safety record award for a ${n.toLowerCase()} crew — ${m}, with a shield emblem and hard-hat motif; ${pal} tones.`, n + ' safety');
+}
+
+// ---------------- Military & veterans ----------------
+const branches = [
+  ['Army', 'crossed rifles motif, a star, olive drab, laurel and a mountain landscape', 'olive drab, gold and black'],
+  ['Navy', 'a fouled anchor, ship’s wheel, rope border and ocean waves', 'navy blue, gold and white'],
+  ['Marine Corps', 'an eagle, globe and anchor style emblem left without lettering, crossed swords and laurel', 'scarlet, gold and black'],
+  ['Air Force', 'aviator wings, a jet contrail across the sky and stars', 'ultramarine, silver and white'],
+  ['Coast Guard', 'a lighthouse, crossed anchors, a cutter on rolling waves and life rings', 'coast guard blue, orange and white'],
+  ['National Guard', 'a minuteman silhouette, laurel, a star and a homeland landscape', 'olive, gold and navy'],
+  ['Space Force', 'a delta emblem, orbiting satellites, Earth from space and stars', 'deep space blue, silver and white'],
+  ['Veteran (any branch)', 'a folded flag shape, dog tags, laurel, an eagle and a sunrise', 'navy, gold and red'],
+];
+for (const [b, m, pal] of branches) {
+  add('Military & Veterans', 'Appreciation', `${b} service appreciation`, `Certificate of appreciation for ${b === 'Veteran (any branch)' ? 'a veteran' : 'a ' + b + ' veteran'} — ${m}, dignified and grateful; ${pal} tones.`, b + ' veteran');
+  add('Military & Veterans', 'Retirement', `${b} retirement`, `Military retirement recognition for a ${b} service member after a full career — ${m}, formal and honorable; ${pal} tones.`, b);
+  add('Military & Veterans', 'Honor', `${b} Veterans Day honor`, `Veterans Day honor for a ${b} veteran — ${m}, with poppies and a quiet, reverent feel; ${pal} tones.`, b + ' veterans day');
+  add('Military & Veterans', 'Completion & Certification', `${b} promotion`, `Promotion recognition for a ${b} service member — ${m}, crisp and official; ${pal} tones.`, b + ' promotion rank');
+  add('Military & Veterans', 'Family', `${b} military family thank-you`, `Thank-you certificate for the family of a deployed ${b} service member — ${m}, warm with a home and heart motif; ${pal} tones.`, b + ' spouse family');
+}
+const firstResp = [
+  ['Firefighter lifesaving award', 'a Maltese cross, helmet, hose and a rescued family silhouette', 'fire red, gold and black'],
+  ['Police lifesaving award', 'a badge, laurel and a guardian shield over a city', 'navy, silver and gold'],
+  ['EMS lifesaving award', 'the Star of Life, an ambulance and a heartbeat line', 'emergency blue, red and white'],
+  ['Search and rescue volunteer', 'a rescue helicopter, mountains, rope and a K9 silhouette', 'rescue orange, slate and white'],
+  ['Volunteer fire department', 'a vintage engine, a small-town firehouse and a Maltese cross', 'fire red, gold and cream'],
+  ['K9 officer', 'a German shepherd, a badge, paw prints and laurel', 'navy, tan and gold'],
+  ['Honor guard', 'crossed flags, white gloves, a bugle and laurel', 'navy, gold and white'],
+  ['Chaplain', 'a dove, a badge-shaped shield, an open book and soft light', 'deep blue, gold and ivory'],
+];
+for (const [t, m, pal] of firstResp) add('Public Service', 'Honor', t, `${t} — ${m}, honorable and heroic; ${pal} tones.`, 'first responder');
+
+// ---------------- Hobbies & interests ----------------
+const hobbies = [
+  ['Fishing', 'a bass leaping from a lake, a rod and reel, tackle box and cattails at sunrise'],
+  ['Fly fishing', 'a trout rising to a fly, a fly rod, a wicker creel and a mountain stream'],
+  ['Ice fishing', 'an ice house on a frozen lake, an auger, tip-ups and a walleye'],
+  ['Deer hunting', 'a whitetail buck in autumn woods, a tree stand and oak leaves'],
+  ['Duck hunting', 'mallards over a marsh, decoys, cattails and a retriever'],
+  ['Golf', 'a golf course green, flag, clubs and a ball on the tee'],
+  ['Bowling', 'pins exploding, a bowling ball, and a retro alley'],
+  ['Gardening', 'vegetables, sunflowers, a watering can, trowel and seed packets'],
+  ['Rose growing', 'lush garden roses, a trellis, pruning shears and a watering can'],
+  ['Woodworking', 'a workbench, hand plane with curled shavings, chisels and clamps'],
+  ['Wood burning', 'a pyrography pen, curling smoke and a beautifully burned basswood plaque'],
+  ['Quilting', 'a patchwork quilt, thimble, spools of thread and a sewing machine'],
+  ['Knitting', 'balls of yarn, knitting needles and a cozy cabled sweater'],
+  ['Baking', 'a rolling pin, pies, cookies cooling on a rack and a mixing bowl'],
+  ['Barbecue and grilling', 'a smoker, brisket, tongs, flames and hickory wood'],
+  ['Chili cook-off', 'a cast-iron pot of chili, chili peppers, a ladle and flames'],
+  ['Classic cars', 'a gleaming vintage car, chrome hubcaps, a wrench and checkered flag'],
+  ['Motorcycles', 'a cruiser motorcycle on an open road, leather gloves and an engine'],
+  ['Hot rods', 'a flame-painted hot rod, chrome engine and a drag strip'],
+  ['Trains and model railroading', 'a steam locomotive, a miniature town, tracks and a station'],
+  ['Camping', 'a tent, campfire, canoe, pines and stars over a lake'],
+  ['Hiking', 'boots, trekking poles, a trail map and mountain peaks'],
+  ['Canoeing and kayaking', 'a canoe gliding on a misty lake with loons and paddles'],
+  ['Birdwatching', 'binoculars, a field guide, cardinals, chickadees and bluebirds'],
+  ['Photography', 'a vintage camera, lenses, film strips and landscapes'],
+  ['Painting', 'an easel, palette, brushes and a landscape in progress'],
+  ['Reading', 'stacks of books, a reading lamp, cozy armchair and tea'],
+  ['Chess', 'chess pieces, a checkered board and a crown'],
+  ['Board games and cards', 'playing cards, dice, game pieces and a cozy table'],
+  ['Cribbage', 'a wooden cribbage board, pegs and a fanned hand of cards'],
+  ['Running', 'running shoes, a finish-line tape, a road and medals'],
+  ['Marathon', 'a winding course, running shoes, finisher medals and a crowd'],
+  ['Cycling', 'a road bike on rolling hills, a helmet and gears'],
+  ['Pickleball', 'paddles, a perforated ball, a court and a net'],
+  ['Tennis', 'rackets, tennis balls and a clay court'],
+  ['Swimming', 'lane lines, goggles, splashes and a pool'],
+  ['Skiing', 'skis, poles, a snowy mountain and a chairlift'],
+  ['Snowmobiling', 'a snowmobile trail through snowy pines'],
+  ['Horseback riding', 'a horse, saddle, horseshoes and rolling pasture'],
+  ['Dog training', 'a happy dog, ribbons, an agility jump and paw prints'],
+  ['Cat lover', 'curled cats, yarn balls and a sunny windowsill'],
+  ['Aviation', 'a vintage biplane, propeller, aviator goggles and clouds'],
+  ['Amateur radio', 'a ham radio station, antenna tower, headphones and radio waves'],
+  ['Astronomy', 'a telescope, constellations, the moon and planets'],
+  ['Genealogy', 'a family tree with branches, old photographs and a magnifying glass'],
+  ['Coin collecting', 'antique coins, a magnifier and a velvet display tray'],
+  ['Stamp collecting', 'vintage postage stamps, tweezers and an album'],
+  ['Antiques', 'an antique clock, vintage teacups and a brass lamp'],
+  ['Music and band', 'instruments of a band, sheet music and a stage'],
+  ['Choir and singing', 'a choir loft, sheet music and soaring notes'],
+  ['Dancing', 'dance shoes, swirling ribbons and a ballroom floor'],
+  ['Theater', 'stage curtains, comedy and tragedy masks and spotlights'],
+  ['Video games', 'a game controller, pixel hearts and a retro arcade'],
+  ['Robotics', 'a friendly robot, gears, circuit boards and tools'],
+  ['Wine making', 'grape vines, oak barrels and wine glasses'],
+  ['Home brewing', 'hops, a copper brew kettle, barley and a frothy mug'],
+  ['Coffee', 'a steaming mug, coffee beans and a pour-over setup'],
+  ['Sewing', 'a sewing machine, pins, measuring tape and fabric'],
+  ['Scrapbooking', 'photos, paper flowers, washi tape and stickers'],
+  ['Lego building', 'colorful interlocking bricks and a small brick-built city'],
+  ['Volunteering', 'helping hands, a heart and a community center'],
+];
+const hobbyOcc = [
+  ['Champion', 'champion', (h, m) => `Championship award for a ${h.toLowerCase()} competition winner — ${m}, with a trophy cup shape and ribbons; celebratory and bold.`],
+  ['Lifetime Achievement', 'lifetime achievement', (h, m) => `Lifetime achievement honor for a devoted ${h.toLowerCase()} enthusiast — ${m}, rich and timeless.`],
+  ['Birthday', 'birthday', (h, m) => `Milestone birthday certificate for someone who loves ${h.toLowerCase()} — ${m}, fun and warm.`],
+  ['Retirement', 'retirement hobby', (h, m) => `Retirement certificate celebrating more time for ${h.toLowerCase()} — ${m}, relaxed and joyful.`],
+  ['Club Award', 'club', (h, m) => `Club member of the year award for a ${h.toLowerCase()} club — ${m}, friendly and proud.`],
+];
+for (const [h, m] of hobbies)
+  for (const [o, k, fn] of hobbyOcc) add('Hobbies & Interests', o, `${h} — ${o.toLowerCase()}`, fn(h, m), h + ' ' + k);
+
+// ---------------- Sports & coaching ----------------
+const sports = [
+  ['Baseball', 'a baseball diamond, bats, glove and stitched ball'],
+  ['Softball', 'a softball diamond, bat, glove and bright yellow ball'],
+  ['Basketball', 'a basketball swishing through a net and a hardwood court'],
+  ['Football', 'a football, goal posts, a stadium under lights and yard lines'],
+  ['Soccer', 'a soccer ball striking a net, a pitch and cleats'],
+  ['Hockey', 'crossed hockey sticks, a puck, skates and ice rink lines'],
+  ['Volleyball', 'a volleyball over a net and a sand court'],
+  ['Wrestling', 'a wrestling mat circle, headgear and laurel'],
+  ['Track and field', 'hurdles, a track, relay batons and a starting block'],
+  ['Cross country', 'runners on a wooded trail with autumn leaves'],
+  ['Swimming and diving', 'a diving board, splashes and lane lines'],
+  ['Gymnastics', 'a balance beam, rings, chalked hands and a leaping gymnast silhouette'],
+  ['Cheerleading', 'pom-poms, megaphone and a pyramid silhouette'],
+  ['Dance team', 'a dancer silhouette, ribbons and stage lights'],
+  ['Golf team', 'a green, flag and clubs'],
+  ['Tennis team', 'rackets, balls and a court'],
+  ['Bowling league', 'pins, ball and lanes'],
+  ['Martial arts', 'a black belt, a dojo and a rising sun'],
+  ['Figure skating', 'skates, swirling ice trails and snowflakes'],
+  ['Rodeo', 'a bucking bronco, rope, and arena'],
+  ['Fishing tournament', 'a bass boat, trophy fish and lake'],
+  ['Robotics team', 'a competition robot, gears and an arena'],
+  ['Esports team', 'controllers, a headset and a glowing arena'],
+  ['Special Olympics', 'a torch, medals, joyful athletes and laurel'],
+];
+const sportOcc = [
+  ['MVP', (s, m) => `Most Valuable Player award for ${s.toLowerCase()} — ${m}, dynamic and triumphant.`],
+  ['Coach Appreciation', (s, m) => `Coach appreciation award from a ${s.toLowerCase()} team — ${m}, grateful and spirited.`],
+  ['Champion', (s, m) => `Season champions certificate for a ${s.toLowerCase()} team — ${m}, with a trophy shape and confetti.`],
+  ['Most Improved', (s, m) => `Most improved player award for ${s.toLowerCase()} — ${m}, encouraging and upbeat.`],
+  ['Team Spirit', (s, m) => `Team spirit and sportsmanship award for ${s.toLowerCase()} — ${m}, warm and cheerful.`],
+  ['Senior Night', (s, m) => `Senior night recognition for a graduating ${s.toLowerCase()} athlete — ${m}, proud and nostalgic.`],
+];
+for (const [s, m] of sports) for (const [o, fn] of sportOcc) add('Sports & Coaching', o, `${s} — ${o.toLowerCase()}`, fn(s, m), s);
+
+// ---------------- School & youth ----------------
+const school = [
+  ['Honor roll', 'a lamp of learning, stars, books and laurel, bright school colors'],
+  ['Perfect attendance', 'a sunny schoolhouse, a calendar with gold stars and an alarm clock'],
+  ['Kindergarten graduation', 'crayons, a tiny cap and gown, alphabet blocks and balloons'],
+  ['Preschool graduation', 'a rainbow, building blocks, a teddy bear and stars'],
+  ['Eighth grade promotion', 'a mortarboard, books, a rising path and stars'],
+  ['High school graduation', 'a mortarboard with tassel, diploma scroll shape, school crest and laurel'],
+  ['College graduation', 'ivy-covered halls, a mortarboard and a lamp of knowledge'],
+  ['Homeschool graduation', 'a cozy home, books, a globe and a mortarboard'],
+  ['Spelling bee champion', 'a bee, letter tiles without readable words, a trophy and honeycomb'],
+  ['Science fair winner', 'a volcano, beakers, a microscope and a blue ribbon'],
+  ['Reading challenge', 'a rocket made of books, stars and an open book'],
+  ['Math whiz', 'geometric shapes, a compass, calculator and stars'],
+  ['Art contest winner', 'paintbrushes, a palette, splashes of color and a blue ribbon'],
+  ['Student of the month', 'a gold star, a schoolhouse, books and an apple'],
+  ['Citizenship award', 'helping hands, a globe, a heart and laurel'],
+  ['Kindness award', 'hearts, a rainbow, helping hands and flowers'],
+  ['Leadership award', 'a compass, a mountain summit flag and stars'],
+  ['Eagle Scout', 'an eagle in flight, a campfire, knots, a compass and mountains'],
+  ['Girl Scout Gold Award', 'a trefoil-shaped leaf motif, a sunrise, a mountain path and stars'],
+  ['Cub Scout rank', 'a campfire, pocketknife, compass, tent and wolves'],
+  ['4-H achievement', 'a four-leaf clover, a blue-ribbon calf, a barn and garden'],
+  ['FFA award', 'an ear of corn, a plow, a rising sun and an owl'],
+  ['Band award', 'a marching drum, trumpet, flute and music notes'],
+  ['Choir award', 'a choir robe, sheet music and soaring notes'],
+  ['Drama award', 'comedy and tragedy masks, curtains and spotlights'],
+  ['Debate champion', 'a podium, gavel, speech bubbles and laurel'],
+  ['Robotics club', 'a friendly robot, gears and circuit boards'],
+  ['Chess club', 'chess pieces and a checkered board'],
+  ['Summer reading', 'a beach chair, stacks of books, a sun and waves'],
+  ['Swim lessons completed', 'a pool, goggles, a friendly fish and splashes'],
+  ['Learned to ride a bike', 'a bicycle with training wheels removed, a path and balloons'],
+  ['Potty training champion', 'a cheerful crown, stars and balloons'],
+  ['Lost first tooth', 'a smiling tooth fairy, stars and a tiny pillow'],
+  ['Good behavior chart', 'stars, rainbows and a smiling sun'],
+  ['Valedictorian', 'laurel, a mortarboard, a lamp of learning and a school crest'],
+  ['National Honor Society', 'a torch, laurel and a lamp of knowledge'],
+  ['Scholarship recipient', 'books, a key, a rising sun and laurel'],
+  ['Teacher’s helper', 'an apple, a ruler, a chalkboard and a gold star'],
+  ['Safety patrol', 'a sash, a stop paddle shape, a crosswalk and a school bus'],
+  ['Field day champion', 'a sack race, relay batons, ribbons and sunshine'],
+];
+for (const [t, m] of school) {
+  add('School & Youth', 'Achievement', t, `${t} certificate — ${m}; cheerful, encouraging and age-appropriate.`, 'student kids');
+}
+
+// ---------------- Family & milestones ----------------
+const family = [
+  ['World’s best dad', 'a grill, toolbox, fishing rod, a recliner and a necktie'],
+  ['World’s best mom', 'flowers, a heart, a teacup and a cozy kitchen'],
+  ['Best grandpa', 'a rocking chair, fishing pole, pocket watch and grandkids’ drawings'],
+  ['Best grandma', 'knitting, cookies, a rose garden and a teapot'],
+  ['Best brother', 'two bikes, a treehouse and a baseball'],
+  ['Best sister', 'two matching bracelets, flowers and stars'],
+  ['Best aunt', 'a bouquet, a teacup and a heart'],
+  ['Best uncle', 'a fishing boat, grill and a deck of cards'],
+  ['Best stepparent', 'interlocking hearts, a home and a blooming tree'],
+  ['Foster parent appreciation', 'a home with open arms, a heart and a growing tree'],
+  ['Adoption day', 'a family tree, a heart, a front door and stars'],
+  ['Welcome baby', 'a crib mobile, baby footprints, moon and stars'],
+  ['First Father’s Day', 'a tiny hand in a big hand, a tie and stars'],
+  ['First Mother’s Day', 'a tiny hand in a big hand, flowers and a heart'],
+  ['Wedding certificate keepsake', 'interlocking rings, roses, doves and lace'],
+  ['First anniversary', 'paper flowers, hearts and an origami crane'],
+  ['10th anniversary', 'tin and aluminum flowers, hearts and laurel'],
+  ['25th silver anniversary', 'silver rings, roses and a silver laurel'],
+  ['40th ruby anniversary', 'ruby roses, rings and gold scrollwork'],
+  ['50th golden anniversary', 'golden rings, roses and a golden laurel'],
+  ['60th diamond anniversary', 'diamond facets, roses and silver scrollwork'],
+  ['Housewarming', 'a cozy home, a key, a welcome mat and a wreath'],
+  ['New homeowner', 'a house, keys, a picket fence and blooming flowers'],
+  ['Citizenship celebration', 'a waving flag motif without stars-and-stripes text, laurel and a sunrise'],
+  ['Pet of the year', 'a happy dog and cat, paw prints, a ribbon and a bone'],
+  ['Good boy award', 'a golden retriever, a tennis ball and paw prints'],
+  ['Family reunion', 'a picnic, a family tree and a barn'],
+  ['Caregiver thank-you', 'gentle hands, a heart and a cup of tea'],
+  ['Retirement of a spouse', 'two coffee mugs, a porch swing, a sunset and a calendar'],
+  ['Empty nest celebration', 'a nest, birds flying off and a sunrise'],
+];
+for (const [t, m] of family) add('Family & Milestones', 'Family', t, `${t} — ${m}; warm, personal and heartfelt.`, 'family');
+for (const age of [1, 13, 16, 18, 21, 30, 40, 50, 60, 65, 70, 75, 80, 90, 100]) {
+  add('Family & Milestones', 'Birthday', `${age}th birthday`, `${age}th birthday milestone certificate — balloons, confetti and laurel with an elegant celebratory frame; joyful and classy.`, `birthday ${age}`);
+  if (age >= 50) add('Family & Milestones', 'Birthday', `${age} years young — vintage`, `Vintage-style "aged to perfection" ${age}th birthday award — a wine barrel, classic car and antique clock motifs; witty and warm.`, `birthday ${age} vintage funny`);
+}
+
+// ---------------- Workplace & fun awards ----------------
+const fun = [
+  ['Coffee pot hero', 'coffee pots, steaming mugs and beans'],
+  ['Spreadsheet wizard', 'a wizard hat, glowing grids and sparkles'],
+  ['Meeting survivor', 'a life preserver, a clock and a conference table'],
+  ['Office DJ', 'headphones, a turntable and music notes'],
+  ['Snack drawer champion', 'snacks, candy and a golden drawer'],
+  ['Inbox zero master', 'an empty inbox tray, laurel and sparkles'],
+  ['Most likely to fix the printer', 'a printer, wrench and lightning bolts'],
+  ['Best potluck dish', 'a casserole dish, steam and a blue ribbon'],
+  ['Chili cook-off champion', 'a chili pot, peppers and flames'],
+  ['Ugly sweater champion', 'a gloriously ugly holiday sweater, snowflakes and reindeer'],
+  ['Halloween costume winner', 'pumpkins, bats and a spooky moon'],
+  ['Office plant whisperer', 'thriving potted plants and a watering can'],
+  ['Calm in the storm', 'a lighthouse in a storm and calm waters'],
+  ['Above and beyond', 'a rocket soaring above clouds and stars'],
+  ['Team player', 'puzzle pieces fitting together and joined hands'],
+  ['Rookie of the year', 'a rising star, a sprout and a trophy'],
+  ['Mentor of the year', 'a lantern, a path and a growing tree'],
+  ['Innovation award', 'a lightbulb, gears and sparks'],
+  ['Customer hero', 'a cape, a headset and stars'],
+  ['Safety champion', 'a hard hat, shield and checkmarks'],
+  ['Perfect attendance at work', 'a time clock, calendar and gold star'],
+  ['Night shift legend', 'a moon, stars, coffee and a lit factory'],
+  ['Weekend warrior', 'a sun, tools and a finished project'],
+  ['Dad joke champion', 'a groan-worthy crown, a whoopee cushion and laughing faces'],
+  ['Grill master', 'a smoking grill, spatula, flames and steaks'],
+  ['Best dog dad', 'a dog, a leash and paw prints'],
+  ['Fantasy football champion', 'a trophy, a football and a stadium'],
+  ['Fish story champion', 'an enormous exaggerated fish and a tiny boat'],
+  ['Retirement — finally free', 'a hammock, a beach, an alarm clock thrown away'],
+  ['Retirement — gone fishin’', 'a fishing boat at sunrise and a lake'],
+  ['Retirement — the boss of nothing', 'a crown, a recliner and a remote'],
+  ['Retirement — gone golfin’', 'a golf cart, green and flag'],
+  ['Retirement — Grandparent duty', 'toys, a rocking chair and grandkids’ drawings'],
+  ['Retirement — road trip', 'an RV on an open highway and mountains'],
+  ['Retirement — garden time', 'raised beds, sunflowers and a wheelbarrow'],
+  ['Retirement — shop time', 'a woodshop, workbench and sawdust'],
+];
+for (const [t, m] of fun) add('Fun & Lighthearted', 'Fun', t, `Lighthearted "${t}" award — ${m}; playful and colorful but still well-designed and framed.`, 'funny humor office');
+
+// ---------------- Memorial & tribute ----------------
+const memorial = [
+  ['In loving memory', 'doves, lilies and soft light through clouds'],
+  ['Celebration of life', 'sunflowers, a sunrise and butterflies'],
+  ['Memorial for a veteran', 'a folded flag shape, poppies, dog tags and laurel'],
+  ['Memorial for a firefighter', 'a Maltese cross, helmet and bagpipes'],
+  ['Memorial for a police officer', 'a badge with mourning band, laurel and a thin blue line'],
+  ['Memorial for a farmer', 'a red barn at sunset, wheat and an empty tractor seat'],
+  ['Memorial for a fisherman', 'an empty boat on a calm lake at sunset'],
+  ['Memorial for a hunter', 'an empty tree stand, autumn woods and a deer at dawn'],
+  ['Memorial for a gardener', 'a garden bench, roses and a watering can'],
+  ['Memorial for a teacher', 'an apple, books and soft light'],
+  ['Memorial for a nurse', 'a nursing cap, roses and a lamp'],
+  ['Memorial for a craftsman', 'a workbench with tools neatly hung and warm light'],
+  ['Pet memorial', 'a rainbow bridge, paw prints and soft clouds'],
+  ['Dog memorial', 'a loyal dog silhouette at a rainbow bridge'],
+  ['Cat memorial', 'a cat on a sunny windowsill and stars'],
+  ['Horse memorial', 'a horse in a meadow at sunset and horseshoes'],
+  ['Infant remembrance', 'tiny footprints, stars, a crescent moon and clouds'],
+  ['Memorial bench plaque', 'a park bench under a shade tree and birds'],
+  ['Memorial for a musician', 'a guitar resting against a chair and music notes'],
+  ['Memorial for a grandparent', 'an empty rocking chair, a porch and a sunset'],
+];
+for (const [t, m] of memorial) add('Memorial & Tribute', 'Memorial', t, `${t} tribute — ${m}; gentle, dignified and comforting.`, 'memorial tribute');
+
+// ---------------- Community, faith & volunteering ----------------
+const community = [
+  ['Volunteer of the year', 'helping hands, a heart and a community'],
+  ['Board member appreciation', 'a gavel, a boardroom table and laurel'],
+  ['Committee chair thank-you', 'a gavel, a clipboard and laurel'],
+  ['Donor appreciation', 'a heart in open hands, a building and laurel'],
+  ['Sponsor appreciation', 'a handshake, laurel and a community skyline'],
+  ['Church anniversary', 'a steeple, stained glass and a dove'],
+  ['Pastor appreciation', 'an open Bible, a dove and stained glass'],
+  ['Sunday school teacher', 'a church, children, an open Bible and a dove'],
+  ['Baptism keepsake', 'a dove, water and a shell'],
+  ['First communion', 'a chalice, wheat, grapes and a dove'],
+  ['Confirmation', 'a dove, flames and an open Bible'],
+  ['Bar or bat mitzvah', 'a Torah scroll, Star of David and pomegranates'],
+  ['Lions or Rotary club service', 'a gear wheel, helping hands and a globe'],
+  ['VFW or Legion post', 'an eagle, a flag motif and laurel'],
+  ['Union local recognition', 'clasped hands, tools of the trade, a union hall and laurel'],
+  ['Union steward appreciation', 'clasped hands, a shield and tools'],
+  ['Neighborhood watch', 'a lantern, houses and a shield'],
+  ['Community garden', 'raised beds, sunflowers and neighbors'],
+  ['Blood donor milestone', 'a blood drop, heart and laurel'],
+  ['Animal shelter volunteer', 'dogs and cats, a shelter and a heart'],
+  ['Hospital volunteer', 'a heart, a hospital and flowers'],
+  ['Literacy tutor', 'open books, a lamp and a child reading'],
+  ['Meals on Wheels volunteer', 'a delivery car, a meal and a heart'],
+  ['Coach of the community', 'a whistle, fields and kids playing'],
+  ['Fundraiser champion', 'a thermometer goal chart without numbers, hearts and confetti'],
+  ['Parade marshal', 'a parade float, balloons and bunting'],
+  ['Small business of the year', 'a main street shopfront, awning and laurel'],
+  ['Farmer’s market vendor', 'produce crates, a striped tent and flowers'],
+  ['Crafter of the year', 'a craft fair booth, handmade items and ribbons'],
+  ['County fair blue ribbon', 'a blue ribbon, Ferris wheel and barn'],
+];
+for (const [t, m] of community) add('Faith & Community', 'Community', t, `${t} — ${m}; sincere and community-minded.`, 'community volunteer');
+
+// ---------------- Wood-burning showpieces (great as pyrography) ----------------
+const pyro = [
+  ['Carpenter retirement plaque', 'a detailed tool belt with hammer, chisel and tape measure, framed by oak branches'],
+  ['Lake cabin family plaque', 'a cabin by a lake with pines, a canoe and loons'],
+  ['Hunting camp honor board', 'a whitetail buck in a forest clearing with oak leaves'],
+  ['Fishing buddy award plaque', 'a jumping walleye, a lure and cattails'],
+  ['Farm family heritage plaque', 'a barn, windmill and wheat with a winding lane'],
+  ['Grandpa’s workshop plaque', 'a workbench, hand plane and hanging saws'],
+  ['Retired firefighter plaque', 'a Maltese cross with helmet, axes and hose'],
+  ['Veteran honor plaque', 'an eagle with spread wings above laurel and a folded flag shape'],
+  ['Coach appreciation plaque', 'a whistle, clipboard and the sport’s ball over laurel'],
+  ['Teacher thank-you plaque', 'an apple, books and a pencil framed by vines'],
+  ['Nurse appreciation plaque', 'a stethoscope forming a heart with roses'],
+  ['Wedding anniversary plaque', 'intertwined rings, roses and a tree with a carved heart'],
+  ['Memorial wood plaque', 'a dove over a sunrise with lilies'],
+  ['Pet memorial plaque', 'a dog or cat portrait outline with paw prints and a rainbow arc'],
+  ['Mountain retirement plaque', 'layered mountain peaks, pines and a winding trail'],
+  ['Trucker retirement plaque', 'a semi truck on a highway with mountains'],
+  ['Railroad retirement plaque', 'a steam locomotive crossing a trestle bridge'],
+  ['Lineman retirement plaque', 'a utility pole with climbing gear against clouds'],
+  ['Welder retirement plaque', 'a welding helmet, torch and sparks'],
+  ['Mechanic retirement plaque', 'crossed wrenches, a piston and gears'],
+  ['Union brotherhood plaque', 'clasped hands within a gear with tools of the trade'],
+  ['Eagle Scout plaque', 'a soaring eagle over mountains, a compass and knots'],
+  ['Graduation keepsake plaque', 'a mortarboard and diploma scroll shape with laurel'],
+  ['Hunting dog honor plaque', 'a Lab retriever with a duck and cattails'],
+  ['Horse lover plaque', 'a horse head with flowing mane and horseshoes'],
+  ['Gardener’s plaque', 'sunflowers, a watering can and a trowel'],
+  ['Musician’s plaque', 'a guitar with flowing notes and vines'],
+  ['Pilot’s plaque', 'a vintage propeller plane over clouds'],
+  ['Sailor’s plaque', 'an anchor, ship’s wheel and rope border'],
+  ['Pastor’s plaque', 'a church steeple, dove and open Bible'],
+];
+for (const [t, m] of pyro) add('Wood-Burning Showpieces', 'Pyrography', t, `Wood-burning ${t.toLowerCase()} — ${m}; bold, clean outlines that burn well, with room for lettering.`, 'pyrography wood burn plaque');
+
+mkdirSync(new URL('../public/data/', import.meta.url), { recursive: true });
+writeFileSync(new URL('../public/data/prompts.json', import.meta.url), JSON.stringify(out));
+const cats = {};
+for (const x of out) cats[x.c] = (cats[x.c] || 0) + 1;
+console.log('prompts:', out.length, cats);

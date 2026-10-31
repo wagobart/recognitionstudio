@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recognition Studio</title>
+<meta name="description" content="Design personalized awards, certificates and wood-burning recognition pieces with AI.">
+<meta name="theme-color" content="#f5f2ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Recognition">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/css/app.css?v=1">
+</head>
+<body>
+<header class="top">
+  <button class="brand" id="homeBtn" aria-label="Recognition Studio home">
+    <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 19l-3 10 8-4 8 4-3-10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M16 9l1.3 2.7 3 .4-2.2 2 .6 3-2.7-1.5-2.7 1.5.6-3-2.2-2 3-.4z" fill="currentColor"/></svg>
+    <span>Recognition <em>Studio</em></span>
+  </button>
+  <span class="mode-badge" id="modeBadge" hidden title="The server is in test mode: artwork is a placeholder, no AI cost.">Test mode</span>
+  <nav class="top-nav">
+    <button class="link-btn" id="projectsBtn" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2h8.5A1.5 1.5 0 0121 8.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>My projects</span></button>
+    <button class="link-btn" id="accountBtn">Sign in</button>
+  </nav>
+</header>
+
+<main class="studio" id="studio" data-view="start">
+  <section class="stage-wrap" id="stageWrap">
+    <div class="stage" id="stage" aria-label="Design preview">
+      <div class="sheet-holder" id="sheetHolder"></div>
+      <div class="stage-overlay" id="stageOverlay" hidden></div>
+    </div>
+    <p class="stage-hint" id="stageHint" hidden>Tap any words on the design to edit them</p>
+  </section>
+
+  <section class="panel" id="panel">
+    <!-- START: describe the idea -->
+    <div class="start" id="startPanel">
+      <h1>What are we celebrating?</h1>
+      <p class="lede">Describe the person and the occasion. AI designs artwork just for them — then you fill in the exact wording and lettering.</p>
+      <label class="sr-only" for="idea">Describe your recognition</label>
+      <textarea id="idea" rows="4" maxlength="1500" placeholder="e.g. Retirement for Mike, a union carpenter for 32 years. Work his tool belt into the border. He loves fishing."></textarea>
+      <button class="ghost-btn wide" id="browseBtn" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Browse <b id="ideaCount">1,000+</b> ideas</span>
+      </button>
+      <fieldset class="output-pick">
+        <legend>Make it as a…</legend>
+        <label class="pick"><input type="radio" name="output" value="certificate" checked>
+          <span class="pick-card"><span class="pick-ico pick-cert" aria-hidden="true"></span><b>Printable certificate</b><small>Full color, ready to print &amp; frame</small></span></label>
+        <label class="pick"><input type="radio" name="output" value="pyrography">
+          <span class="pick-card"><span class="pick-ico pick-wood" aria-hidden="true"></span><b>Wood-burning pattern</b><small>Black line art to trace &amp; burn</small></span></label>
+      </fieldset>
+      <button class="primary-btn wide big" id="designBtn" type="button">Design it <span aria-hidden="true">✦</span></button>
+      <p class="fine">Takes about a minute. Every word stays editable afterward — no redrawing needed.</p>
+    </div>
+
+    <!-- EDITOR -->
+    <div class="editor" id="editPanel" hidden>
+      <div class="art-status" id="artStatus" hidden></div>
+
+      <details class="sec" id="secWording" open>
+        <summary><span class="sec-ico">Aa</span><span><b>Wording</b><small id="wordingSummary">Name, title and message</small></span></summary>
+        <div class="sec-body">
+          <label class="fld"><span>Recipient’s name</span><input id="f-name" data-field="name" autocomplete="off" placeholder="Full name as it should appear"></label>
+          <label class="fld"><span>Award title</span><input id="f-title" data-field="title" autocomplete="off"></label>
+          <label class="fld"><span>Message</span><textarea id="f-body" data-field="body" rows="3"></textarea></label>
+          <label class="fld"><span>Date <i>(optional)</i></span><input id="f-date" data-field="date" autocomplete="off" placeholder="e.g. June 14, 2026"></label>
+          <details class="sub" id="subLines">
+            <summary>More lines <small>above the title, lead-in, details</small></summary>
+            <label class="fld"><span>Line above the title</span><input id="f-kicker" data-field="kicker" autocomplete="off"></label>
+            <label class="fld"><span>Lead-in before the name</span><input id="f-presented" data-field="presented" autocomplete="off"></label>
+            <label class="fld"><span>Details line</span><input id="f-details" data-field="details" autocomplete="off" placeholder="e.g. Carpenters Local 1176 · 1993 – 2026"></label>
+          </details>
+          <details class="sub" id="subSigs">
+            <summary>Signature lines <small>up to two</small></summary>
+            <p class="hint">Leave a name blank to print an empty line for signing by hand. Clear both boxes to remove a line.</p>
+            <div class="pair"><label class="fld"><span>Signer 1 name</span><input id="f-sig1Name" data-field="sig1Name" autocomplete="off"></label>
+            <label class="fld"><span>Signer 1 title</span><input id="f-sig1Role" data-field="sig1Role" autocomplete="off"></label></div>
+            <div class="pair"><label class="fld"><span>Signer 2 name</span><input id="f-sig2Name" data-field="sig2Name" autocomplete="off"></label>
+            <label class="fld"><span>Signer 2 title</span><input id="f-sig2Role" data-field="sig2Role" autocomplete="off"></label></div>
+          </details>
+        </div>
+      </details>
+
+      <details class="sec" id="secLettering">
+        <summary><span class="sec-ico sec-ico-pen" aria-hidden="true"></span><span><b>Lettering</b><small id="letteringSummary">Font, color and size</small></span></summary>
+        <div class="sec-body">
+          <div class="style-grid" id="styleGrid" role="radiogroup" aria-label="Lettering style"></div>
+          <div id="colorControls">
+            <div class="swatch-row"><span class="row-label">Headings</span><div class="swatches" id="headSwatches" role="radiogroup" aria-label="Heading color"></div></div>
+            <div class="swatch-row"><span class="row-label">Text</span><div class="swatches" id="textSwatches" role="radiogroup" aria-label="Text color"></div></div>
+          </div>
+          <label class="toggle" id="outlineToggleRow" hidden><input type="checkbox" id="outlineToggle"><span>Outline lettering <small>easier to trace and burn</small></span></label>
+          <label class="range"><span>Text size</span><input type="range" id="scaleRange" min="0.7" max="1.3" step="0.02" value="1"><output id="scaleOut">100%</output></label>
+          <details class="sub" id="subPosition">
+            <summary>Text position <small>if words overlap the artwork</small></summary>
+            <label class="range"><span>Up / down</span><input type="range" id="offYRange" min="-160" max="160" step="4" value="0"></label>
+            <label class="range"><span>Left / right</span><input type="range" id="offXRange" min="-200" max="200" step="4" value="0"></label>
+            <label class="range"><span>Width</span><input type="range" id="widthRange" min="0.7" max="1.2" step="0.02" value="1"></label>
+            <button class="text-btn" id="resetPosBtn" type="button">Reset position</button>
+          </details>
+        </div>
+      </details>
+
+      <details class="sec" id="secArt">
+        <summary><span class="sec-ico sec-ico-art" aria-hidden="true"></span><span><b>Artwork</b><small id="artSummary">Redraw or adjust the design</small></span></summary>
+        <div class="sec-body">
+          <p class="design-notes" id="designNotes"></p>
+          <div class="versions" id="versions" hidden></div>
+          <label class="fld"><span>Change something</span><textarea id="tweakInput" rows="2" placeholder="e.g. make the tool belt larger, add oak leaves, warmer colors"></textarea></label>
+          <div class="btn-row">
+            <button class="primary-btn" id="redrawBtn" type="button">Redraw with change</button>
+            <button class="ghost-btn" id="variationBtn" type="button">New variation</button>
+          </div>
+          <div class="layout-row"><span class="row-label">Composition</span><div class="chips" id="layoutChips"></div></div>
+          <button class="ghost-btn wide" id="switchOutputBtn" type="button"></button>
+          <details class="sub">
+            <summary>Full artwork description <small>advanced</small></summary>
+            <textarea id="artPromptInput" rows="5"></textarea>
+            <p class="hint">Used for every redraw. Describe imagery only — wording is added separately.</p>
+          </details>
+          <p class="fine" id="usageNote"></p>
+        </div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="actionbar" id="actionbar" hidden>
+  <div class="save-state" id="saveState" aria-live="polite"></div>
+  <button class="primary-btn" id="exportBtn" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Export</span></button>
+</footer>
+
+<!-- Sheets / dialogs -->
+<div class="scrim" id="scrim" hidden></div>
+
+<section class="sheet" id="libSheet" role="dialog" aria-modal="true" aria-labelledby="libTitle" hidden>
+  <header class="sheet-head"><h2 id="libTitle">Ideas to start from</h2><button class="icon-btn close" data-close aria-label="Close">✕</button></header>
+  <div class="lib-tools">
+    <input type="search" id="libSearch" placeholder="Search: carpenter, nurse, 25 years, fishing…" autocomplete="off" enterkeyhint="search">
+    <div class="chips scroll" id="libChips"></div>
+  </div>
+  <p class="lib-count" id="libCount"></p>
+  <ul class="lib-list" id="libList"></ul>
+</section>
+
+<section class="sheet" id="exportSheet" role="dialog" aria-modal="true" aria-labelledby="exportTitle" hidden>
+  <header class="sheet-head"><h2 id="exportTitle">Export your design</h2><button class="icon-btn close" data-close aria-label="Close">✕</button></header>
+  <div class="sheet-body">
+    <div class="seg" id="paperSeg" role="radiogroup" aria-label="Paper size">
+      <button role="radio" data-paper="letter" aria-checked="true">Letter</button>
+      <button role="radio" data-paper="a4" aria-checked="false">A4</button>
+      <button role="radio" data-paper="tabloid" aria-checked="false">11 × 17</button>
+    </div>
+    <label class="toggle" id="mirrorRow" hidden><input type="checkbox" id="mirrorToggle"><span>Add a mirrored page <small>for heat or toner transfer onto wood</small></span></label>
+    <button class="primary-btn wide big export-main" id="saveFileBtn" type="button" disabled>
+      <span class="em-title" id="saveFileTitle">Download PDF</span>
+      <span class="em-sub" id="saveFileSub">Preparing…</span>
+    </button>
+    <button class="ghost-btn wide export-alt" id="previewPdfBtn" type="button" disabled>
+      <span class="em-title">Preview PDF</span>
+      <span class="em-sub">Look it over first — nothing is saved</span>
+    </button>
+    <button class="text-btn" id="pngBtn" type="button">Save as an image (PNG) instead</button>
+    <p class="fine" id="exportNote"></p>
+  </div>
+</section>
+
+<section class="sheet" id="projectsSheet" role="dialog" aria-modal="true" aria-labelledby="projTitle" hidden>
+  <header class="sheet-head"><h2 id="projTitle">My projects</h2><button class="icon-btn close" data-close aria-label="Close">✕</button></header>
+  <div class="sheet-body">
+    <p class="storage-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 00.6-7.96A6 6 0 006.2 9.1 4.5 4.5 0 007 18z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span>Saved to your account <b id="projEmail"></b>. Sign in on any phone or computer to open them.</span></p>
+    <button class="primary-btn wide" id="newProjectBtn" type="button">+ Start a new design</button>
+    <div class="proj-grid" id="projGrid"></div>
+  </div>
+</section>
+
+<section class="sheet narrow" id="authSheet" role="dialog" aria-modal="true" aria-labelledby="authTitle" hidden>
+  <header class="sheet-head"><h2 id="authTitle">Sign in to design</h2><button class="icon-btn close" data-close aria-label="Close">✕</button></header>
+  <form class="sheet-body" id="authForm" novalidate>
+    <p class="lede small" id="authLede">Your designs are saved to your account, so you can return to them on any device.</p>
+    <div class="seg" id="authSeg" role="tablist">
+      <button type="button" role="tab" data-mode="login" aria-selected="true">Sign in</button>
+      <button type="button" role="tab" data-mode="signup" aria-selected="false">Create account</button>
+    </div>
+    <label class="fld"><span>Email</span><input type="email" id="authEmail" autocomplete="email" required inputmode="email"></label>
+    <label class="fld"><span>Password</span><input type="password" id="authPass" autocomplete="current-password" required minlength="8"></label>
+    <p class="form-error" id="authError" role="alert" hidden></p>
+    <button class="primary-btn wide big" id="authSubmit" type="submit">Sign in</button>
+    <p class="fine" id="authFine"></p>
+  </form>
+</section>
+
+<section class="sheet narrow" id="accountSheet" role="dialog" aria-modal="true" aria-labelledby="acctTitle" hidden>
+  <header class="sheet-head"><h2 id="acctTitle">Account</h2><button class="icon-btn close" data-close aria-label="Close">✕</button></header>
+  <div class="sheet-body">
+    <p>Signed in as <b id="acctEmail"></b></p>
+    <p class="fine" id="acctUsage"></p>
+    <button class="ghost-btn wide" id="signOutBtn" type="button">Sign out</button>
+  </div>
+</section>
+
+<div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="PDF preview" hidden>
+  <header class="viewer-bar">
+    <button class="link-btn" id="viewerClose">‹ Back to editing</button>
+    <span class="viewer-tag">Preview only — not saved</span>
+    <button class="primary-btn small" id="viewerSave">Save…</button>
+  </header>
+  <iframe id="viewerFrame" title="PDF preview"></iframe>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="/js/app.js?v=1"></script>
+</body>
+</html>

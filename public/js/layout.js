@@ -66,29 +66,61 @@ export function zoneFor(project) {
  * A photo layer lives inside the empty area: beside the words (left/right) or above them (top).
  * Returns the photo's box and the smaller area left for the lettering.
  */
+// usable page inside the edge (the photo may grow over the artwork, but not off the paper)
+const PAGE = { x: 60, y: 50, w: DESIGN_W - 120, h: DESIGN_H - 100 };
+export const PHOTO_SIZE_MAX = 2;
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/**
+ * Photo box + the area left for the lettering. Up to 100% the photo sits inside the open area
+ * (beside or above the words). Past 100% it grows out over the artwork toward the page edge, and
+ * at the maximum it fills that whole side (or the top) of the page; the lettering moves over.
+ */
 export function splitForPhoto(project, full) {
   if (!photoLayerOn(project)) return { photo: null, zone: full };
   const ph = project.photo;
   const a = photoAspect(ph);
-  const size = Math.min(1.5, Math.max(0.5, ph.size || 1));
+  const size = Math.min(PHOTO_SIZE_MAX, Math.max(0.5, ph.size || 1));
+  const t = Math.max(0, (size - 1) / (PHOTO_SIZE_MAX - 1)); // 0 = inside the open area, 1 = full side
+  const minTextW = DESIGN_W * 0.32, minTextH = DESIGN_H * 0.3;
+
   if (ph.place === 'top') {
-    const base = Math.min(full.h * 0.36, (full.w * 0.45) / a);
-    let h = Math.min(base * size, full.h * 0.62), w = h * a;
-    if (w > full.w * 0.7) { w = full.w * 0.7; h = w / a; }
-    const gap = full.h * 0.03;
-    const photo = { x: full.x + (full.w - w) / 2, y: full.y, w, h };
-    return { photo, zone: { x: full.x, y: full.y + h + gap, w: full.w, h: Math.max(full.h * 0.3, full.h - h - gap) } };
+    const h0 = Math.min(full.h * 0.36, (full.w * 0.45) / a);
+    let hMax = PAGE.h * 0.55;
+    if (hMax * a > PAGE.w * 0.8) hMax = (PAGE.w * 0.8) / a;
+    const h = size <= 1 ? h0 * size : lerp(h0, hMax, t);
+    const w = h * a;
+    const y = lerp(full.y, PAGE.y, t);
+    const photo = { x: full.x + full.w / 2 - w / 2, y, w, h };
+    const gap = DESIGN_H * 0.02;
+    const ty = y + h + gap;
+    let bottom = full.y + full.h;
+    if (bottom - ty < minTextH) bottom = Math.min(PAGE.y + PAGE.h, ty + minTextH);
+    return { photo, zone: { x: full.x, y: ty, w: full.w, h: Math.max(40, bottom - ty) } };
   }
-  // base size at 100% fits comfortably in the area whichever way it's tight (narrow or short),
-  // so the Size slider always has room to work; only the extremes are capped
-  const base = Math.min((full.w * 0.36) / a, full.h * 0.78);
-  let h = Math.min(base * size, full.h * 0.98), w = h * a;
-  if (w > full.w * 0.55) { w = full.w * 0.55; h = w / a; }
-  const gap = full.w * 0.035;
-  const y = full.y + (full.h - h) / 2;
-  const right = ph.place === 'right';
-  const photo = { x: right ? full.x + full.w - w : full.x, y, w, h };
-  return { photo, zone: { x: right ? full.x : full.x + w + gap, y: full.y, w: Math.max(full.w * 0.35, full.w - w - gap), h: full.h } };
+
+  // left / right
+  const h0 = Math.min((full.w * 0.36) / a, full.h * 0.78);
+  let hMax = PAGE.h;
+  if (hMax * a > DESIGN_W * 0.46) hMax = (DESIGN_W * 0.46) / a;
+  const h = size <= 1 ? h0 * size : lerp(h0, hMax, t);
+  const w = h * a;
+  const cy = lerp(full.y + full.h / 2, PAGE.y + PAGE.h / 2, t);
+  const y = Math.min(PAGE.y + PAGE.h - h, Math.max(PAGE.y, cy - h / 2));
+  const gap = DESIGN_W * 0.025;
+  if (ph.place === 'right') {
+    const right = lerp(full.x + full.w, PAGE.x + PAGE.w, t);
+    const photo = { x: right - w, y, w, h };
+    const tr = photo.x - gap;
+    let left = full.x;
+    if (tr - left < minTextW) left = Math.max(PAGE.x, tr - minTextW);
+    return { photo, zone: { x: left, y: full.y, w: Math.max(80, tr - left), h: full.h } };
+  }
+  const photo = { x: lerp(full.x, PAGE.x, t), y, w, h };
+  const tl = photo.x + w + gap;
+  let right = full.x + full.w;
+  if (right - tl < minTextW) right = Math.min(PAGE.x + PAGE.w, tl + minTextW);
+  return { photo, zone: { x: tl, y: full.y, w: Math.max(80, right - tl), h: full.h } };
 }
 
 export function computeLayout(project) {

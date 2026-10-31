@@ -1123,9 +1123,13 @@ function projectCard(pr, output) {
   card.dataset.id = pr.id;
   const other = output === 'pyrography' ? 'certificate' : 'pyrography';
   const both = pr.versions?.[other];
-  card.innerHTML = `<button class="proj-open" type="button"><div class="proj-thumb"></div><div class="proj-info"><b></b><small></small></div></button>
-    ${both ? `<span class="proj-tag">${other === 'pyrography' ? '+ Wood-burning' : '+ Certificate'}</span>` : ''}
+  // a design with both versions is listed in both sections; say so in words, below the picture
+  const also = both
+    ? `<span class="proj-also"><span class="proj-also-ico ${other === 'pyrography' ? 'pick-wood' : 'pick-cert'}" aria-hidden="true"></span>${other === 'pyrography' ? 'Also as a pattern' : 'Also as a certificate'}</span>`
+    : '';
+  card.innerHTML = `<button class="proj-open" type="button"><div class="proj-thumb"></div><div class="proj-info"><b></b><small></small>${also}</div></button>
     <button class="proj-menu" type="button" aria-label="More actions">⋯</button>`;
+  if (both) card.querySelector('.proj-also').title = other === 'pyrography' ? 'This design also has a wood-burning pattern version — it’s listed in that section too.' : 'This design also has a color certificate version — it’s listed in that section too.';
   // thumbnail: this section's version of the artwork with the project's lettering
   const thumb = card.querySelector('.proj-thumb');
   const v = pr.versions?.[output];

@@ -338,3 +338,7 @@ svg { flex: none; }
 .danger-text { color: var(--danger); }
 .photo-modes button { font-size: 14px; padding-left: 4px; padding-right: 4px; }
 #photoModeHint { margin: 8px 0 12px; }
+
+.proj-also { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 12px; font-weight: 600; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proj-also-ico { width: 16px; height: 11px; border-radius: 2px; flex: none; border-width: 1.5px !important; box-shadow: none !important; }
+.proj-also-ico.pick-wood::after { inset: 1px 4px; border-width: 1px; }

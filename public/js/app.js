@@ -129,6 +129,7 @@ function setView(v) {
   $('#editPanel').hidden = v !== 'editor';
   $('#actionbar').hidden = v !== 'editor';
   $('#stageHint').hidden = v !== 'editor';
+  $('#navHomeBtn').setAttribute('aria-current', v === 'start' ? 'page' : 'false');
   document.documentElement.classList.toggle('in-editor', v === 'editor');
   window.scrollTo(0, 0);
 }
@@ -827,6 +828,7 @@ $('#pngBtn').addEventListener('click', async () => {
 
 // ---------------- projects ----------------
 $('#projectsBtn').addEventListener('click', openProjects);
+$('#navHomeBtn').addEventListener('click', () => { closeSheet(); newDesign(); });
 $('#newProjectBtn').addEventListener('click', () => { closeSheet(); newDesign(); });
 $('#homeBtn').addEventListener('click', () => {
   if (state.project && $('#studio').dataset.view === 'editor') openProjects();

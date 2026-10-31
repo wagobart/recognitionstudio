@@ -479,8 +479,8 @@ function stageOverlay(kind, html) {
   o.innerHTML = html;
 }
 
-function progressHtml(step) {
-  const steps = ['Reading your idea', 'Planning layout & wording', 'Painting the artwork'];
+function progressHtml(step, photo = false) {
+  const steps = [photo ? 'Adding your photo' : 'Reading your idea', 'Planning layout & wording', 'Painting the artwork'];
   return `<div class="shimmer"></div><div class="spinner"></div><ul class="steps">${steps
     .map((s, i) => `<li class="${i < step ? 'done' : i === step ? 'now' : ''}">${s}</li>`)
     .join('')}</ul><p>${step >= 2 ? 'Usually under a minute. Fill in the wording below while you wait.' : ''}</p>`;
@@ -829,9 +829,10 @@ $('#idea').addEventListener('keydown', (e) => {
 
 async function startDesign() {
   const idea = $('#idea').value.trim();
-  if (idea.length < 3) {
+  // a description, a photo, or both
+  if (idea.length < 3 && !state.pendingPhoto) {
     $('#idea').focus();
-    toast('Describe who it’s for and the occasion — or browse ideas.');
+    toast('Describe who it’s for, or add a photo — or browse ideas.');
     return;
   }
   if (!state.user) return needAuth(startDesign);
@@ -843,16 +844,31 @@ async function startDesign() {
   setView('editor');
   fillForm();
   render();
-  if (state.pendingPhoto) {
-    const pend = state.pendingPhoto;
-    clearStartPhoto(false);
-    attachPhoto(pend);
+  const pend = state.pendingPhoto;
+  if (pend) clearStartPhoto(false);
+  stageOverlay('busy', progressHtml(pend ? 0 : 1, !!pend));
+  // the photo goes up first so the planner can look at it
+  if (pend) {
+    await attachPhoto(pend);
+    if (state.project !== p) return;
+    if (!p.photo && idea.length < 3) {
+      // nothing to design from: back to the start with the photo still chosen
+      state.project = null;
+      stageOverlay(null); setArtStatus(null);
+      setView('start');
+      state.pendingPhoto = pend;
+      $('#startPhotoThumb').src = pend.localUrl;
+      $('#startPhotoNote').hidden = false;
+      $('#startPhotoLabel').textContent = 'Change photo';
+      toast('The photo couldn’t be uploaded. Check your connection and tap Design it again.', { error: true, ms: 5000 });
+      return;
+    }
+    stageOverlay('busy', progressHtml(1, true));
   }
-  stageOverlay('busy', progressHtml(1));
   setArtStatus('busy', `<div class="spinner"></div><span>Designing… this takes about a minute.</span>`);
   $('#secWording').open = true;
   try {
-    const { plan } = await api('/api/plan', { method: 'POST', body: { idea, output } });
+    const { plan } = await api('/api/plan', { method: 'POST', body: { idea, output, ...(p.photo?.key ? { photoKey: p.photo.key } : {}) } });
     applyPlan(plan);
   } catch (e) {
     if (e.status === 401) { setView('start'); return needAuth(startDesign); }
@@ -866,6 +882,7 @@ function applyPlan(plan) {
   const p = state.project;
   p.title = plan.projectTitle || p.title;
   p.plan = { layout: plan.layout, artPrompt: plan.artPrompt, designNotes: plan.designNotes, source: plan.source || '' };
+  if (p.photo && !p.photo.subject && plan.photoSubject) p.photo.subject = plan.photoSubject;
   // never overwrite anything the user already typed
   for (const f of TEXT_FIELDS) if (!p.text[f] && plan.wording?.[f]) p.text[f] = plan.wording[f];
   p.style.lettering = STYLES[plan.lettering] ? plan.lettering : p.style.lettering;

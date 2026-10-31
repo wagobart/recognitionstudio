@@ -8,8 +8,9 @@ AI artwork and lettering are **separate layers**. The image model paints a decor
 font/color/size/position changes never call the AI and never cost money.
 
 ## Flow
-1. Start screen: idea textarea + idea library + output choice (certificate | pyrography) → "Design it".
+1. Start screen: idea textarea + idea library + optional photo + output choice (certificate | pyrography) → "Design it". A description, a photo, or both — **a photo alone is enough** (no description required).
 2. `POST /api/plan` → design plan (layout, artPrompt, lettering style, colors, starter wording, designNotes).
+   With a photo, `startDesign` uploads it first and sends `photoKey`; the planner gets the image (`detail: low`) and designs around what it sees without putting the subject into artPrompt (the exact photo is a layer), returns `photoSubject` (prefills `photo.subject`), never guesses names/dates or that someone died. Photo-only `localPlan` fallback = neutral appreciation with an elegant frame. If the upload fails and there's no description, the user goes back to the start screen with the photo still chosen.
    Text model `PLANNER_MODEL` with strict JSON schema; on any failure or budget limit → `localPlan()` (keyword heuristics). `dropInventedFacts()` strips numbers not in the user's idea and `[placeholder]` fragments.
 3. Editor opens immediately with the plan's wording over blank paper; user can type while art paints.
    `applyPlan` never overwrites fields the user already typed.
@@ -33,7 +34,7 @@ font/color/size/position changes never call the AI and never cost money.
   My projects is split into **Wood-burning patterns** and **Color certificates** sections (`projectCard`). `GET /api/projects` returns `versions{certificate,pyrography}` = latest artwork of each kind from `artHistory`; a project with both is listed in both sections, with a line under the title "Also as a pattern" / "Also as a certificate" (deliberately not an overlay on the picture — the old "+ WOOD-BURNING" corner tag read like a wrong label), and opening it from a section shows that section's version (`openProject(id,{output})`). Delete removes the whole project, both versions (confirm says so).
   Switching output always goes through `setOutputColors`/`useArtVersion`: pyrography forces burn tone and stashes the certificate colors in `style.certHead/certText`, restored when switching back.
 - `scripts/build-prompts.mjs` → `public/data/prompts.json` (1,277 ideas; fields id,c,o,t,p,k).
-- `tests/e2e.py` — Playwright suite (desktop + iPhone emulation). `tests/e2e_photos.py` — photo feature (fixtures in `tests/fixtures/`, public-domain/CC0).
+- `tests/e2e.py` — Playwright suite (desktop + iPhone emulation). `tests/e2e_photos.py` — photo feature; `tests/e2e_photo_start.py` — starting from only a photo (fixtures in `tests/fixtures/`, public-domain/CC0).
 
 ## Certificate ↔ wood-burning versions are the identical artwork (no AI)
 "Make the wood-burning / certificate version (same design)" (`convertOutput` in app.js) never calls the image model:

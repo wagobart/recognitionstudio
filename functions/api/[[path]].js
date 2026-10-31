@@ -87,19 +87,27 @@ route('POST', '/api/plan', async ({ env, request, user }) => {
   const body = await readJson(request);
   const idea = clean(body.idea, 1500);
   const output = body.output === 'pyrography' ? 'pyrography' : 'certificate';
-  if (idea.length < 3) return err('Tell us a little about who this is for and the occasion.');
-  if (isMock(env)) return json({ plan: localPlan({ idea, output }), source: 'test' });
+  // a photo on its own is enough to start: the planner looks at it instead of a description
+  const photoKey = typeof body.photoKey === 'string' && body.photoKey.startsWith(`photo/${user.id}/`) ? body.photoKey : '';
+  if (idea.length < 3 && !photoKey) return err('Tell us a little about who this is for and the occasion, or add a photo.');
+  const local = () => localPlan({ idea, output, photo: !!photoKey });
+  if (isMock(env)) return json({ plan: local(), source: 'test' });
   const L = limits(env);
   const u = await usage(env, user.id);
-  if (u.monthSpend + L.planCost > L.monthlyBudget) return json({ plan: localPlan({ idea, output }), source: 'local', note: 'budget' });
+  if (u.monthSpend + L.planCost > L.monthlyBudget) return json({ plan: local(), source: 'local', note: 'budget' });
   try {
-    const { plan, model } = await planWithAI(env, { idea, output });
+    let photo = null;
+    if (photoKey) {
+      const obj = await env.ART.get(photoKey);
+      if (obj) photo = { bytes: new Uint8Array(await obj.arrayBuffer()), contentType: obj.httpMetadata?.contentType || 'image/jpeg' };
+    }
+    const { plan, model } = await planWithAI(env, { idea, output, photo });
     await logGen(env, { userId: user.id, kind: 'plan', model, status: 'ok', cost: L.planCost });
     return json({ plan, source: 'ai' });
   } catch (e) {
     console.log('planner failed, using local plan', e.message);
     await logGen(env, { userId: user.id, kind: 'plan', status: 'error', detail: String(e.message).slice(0, 300) });
-    return json({ plan: localPlan({ idea, output }), source: 'local' });
+    return json({ plan: local(), source: 'local' });
   }
 });
 

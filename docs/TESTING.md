@@ -53,7 +53,10 @@ Driven in the Claude desktop app's built-in browser (Chromium, desktop window �
 Graphite quality checked by eye on a portrait and a cat at three shading levels: reads as a pencil drawing with exact likeness.
 Fixed while testing: lettering shrank too much beside a photo — now keeps near full size and wraps.
 
+Photo-only start (`tests/e2e_photo_start.py`, passing, test mode): no description + no photo → nudge; photo only → design starts (iPhone 15 emulation wood-burning → graphite; desktop certificate → color).
+
 ## NOT yet verified — required before calling it production-ready
+- **Planner looking at a photo** with the real text model (test mode uses the built-in planner, which can't see images).
 - **"Paint into art" with the real image model** (the edit endpoint + reference photo; test mode only shows placeholder art). Likeness quality and refusals for photos of people/children unknown.
 - **Real iPhone photo picker** (HEIC from the camera roll, very large photos, Live Photos).
 - Broader real-AI coverage (only 7 subjects tried so far; layouts art-left/art-right/crest not yet produced by the planner).

@@ -1,3 +1,4 @@
+import { bytesToB64 } from './util.js';
 // Design planning: turns the user's idea into a layout, an artwork prompt, lettering
 // suggestions and starter wording. Uses an OpenAI text model when available and falls
 // back to a deterministic local planner so a planning failure never blocks the user.
@@ -71,7 +72,7 @@ export function buildImagePrompt({ artPrompt, layout, output, photo }) {
 const PLAN_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['projectTitle', 'layout', 'artPrompt', 'lettering', 'headColor', 'textColor', 'designNotes', 'wording'],
+  required: ['projectTitle', 'layout', 'artPrompt', 'lettering', 'headColor', 'textColor', 'designNotes', 'photoSubject', 'wording'],
   properties: {
     projectTitle: { type: 'string' },
     layout: { type: 'string', enum: Object.keys(LAYOUTS) },
@@ -80,6 +81,7 @@ const PLAN_SCHEMA = {
     headColor: { type: 'string' },
     textColor: { type: 'string' },
     designNotes: { type: 'string' },
+    photoSubject: { type: 'string' },
     wording: {
       type: 'object',
       additionalProperties: false,
@@ -99,7 +101,8 @@ Given the user's idea, plan ONE design:
 - headColor/textColor: hex colors that read well on the art's light empty area. For pyrography use near-black browns only.
 - wording: warm, specific, sincere recognition text. kicker is a short line above the title (e.g. "In Recognition Of"), title is the award name, presented is a short lead-in like "Proudly presented to", name is the recipient's name ONLY if the user gave it (otherwise empty string), body is 1-3 sentences, details holds dates/years/organization if known, date only if given. Signature lines (sig1/sig2) only if the user mentioned who is presenting; otherwise leave name empty and give a sensible role like "Presented by". Never invent people's names, dates or organizations.
 - designNotes: one friendly sentence telling the user what you designed and why.
-- projectTitle: a short title for the user's project list.`;
+- projectTitle: a short title for the user's project list.
+- If a photo is attached: the exact photo is placed in the design separately (beside or above the lettering), so do NOT put its subject into artPrompt as a portrait. Design decorative artwork that suits who or what is in the photo, using what you can see (a uniform, a profession's tools, a breed of dog, a vehicle, a place) plus anything the user wrote. photoSubject: the subject in a few plain words (e.g. "golden retriever", "man in a firefighter's uniform", "red pickup truck"). If there is no description, infer a fitting, warm occasion from the photo, but never guess names, ages, dates, or that someone has died: if a tribute vs. a celebration is unclear, use neutral appreciation wording. With no photo, photoSubject is "".`;
 
 // The model sometimes invents years/dates; keep only what the user actually wrote.
 function dropInventedFacts(plan, idea) {
@@ -117,7 +120,14 @@ function dropInventedFacts(plan, idea) {
   return plan;
 }
 
-export async function planWithAI(env, { idea, output }) {
+export async function planWithAI(env, { idea, output, photo }) {
+  const text = `Output type: ${output === 'pyrography' ? 'wood-burning pattern (photorealistic graphite drawing, grayscale)' : 'printable color certificate'}\nIdea: ${idea || '(no description — design it from the attached photo)'}`;
+  const userContent = photo
+    ? [
+        { type: 'text', text: text + '\nA photo is attached.' },
+        { type: 'image_url', image_url: { url: `data:${photo.contentType || 'image/jpeg'};base64,${bytesToB64(photo.bytes)}`, detail: 'low' } },
+      ]
+    : text;
   const model = env.PLANNER_MODEL || 'gpt-4.1-mini';
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -126,7 +136,7 @@ export async function planWithAI(env, { idea, output }) {
       model,
       messages: [
         { role: 'system', content: PLANNER_SYSTEM },
-        { role: 'user', content: `Output type: ${output === 'pyrography' ? 'wood-burning pattern (photorealistic graphite drawing, grayscale)' : 'printable color certificate'}\nIdea: ${idea}` },
+        { role: 'user', content: userContent },
       ],
       response_format: { type: 'json_schema', json_schema: { name: 'design_plan', strict: true, schema: PLAN_SCHEMA } },
     }),
@@ -181,14 +191,17 @@ const STYLE_HINTS = [
   { re: /fish|hunt|lake|outdoor|camp|hik|mountain|forest|cabin/i, lettering: 'workshop', layout: 'scene', head: '#24402c', text: '#22302a' },
 ];
 
-export function localPlan({ idea = '', output = 'certificate' }) {
+export function localPlan({ idea = '', output = 'certificate', photo = false }) {
+  // started from just a photo: a versatile, elegant frame that suits almost any subject
+  const photoOnly = !idea.trim() && photo;
+  if (photoOnly) idea = 'a heartfelt appreciation featuring a cherished photo';
   const occ = OCCASIONS.find((o) => o.re.test(idea)) || OCCASIONS[OCCASIONS.length - 1];
   const hint = STYLE_HINTS.find((h) => h.re.test(idea)) || { lettering: 'classic', layout: 'framed', head: '#2a2a3a', text: '#2b2b33' };
   const years = idea.match(/(\d{1,2})\s*(?:years?|yrs?)/i);
   const pyro = output === 'pyrography';
   const subject = idea.replace(/\s+/g, ' ').trim() || 'a general recognition award';
   return {
-    projectTitle: (occ.title + (subject ? ' – ' + subject.split(/[,.]/)[0] : '')).slice(0, 70),
+    projectTitle: photoOnly ? `${occ.title} – photo` : (occ.title + (subject ? ' – ' + subject.split(/[,.]/)[0] : '')).slice(0, 70),
     layout: hint.layout,
     artPrompt: `Decorative artwork celebrating ${subject}, using concrete, recognizable objects, tools and symbols from that person's work, interests and occasion`,
     lettering: hint.lettering,

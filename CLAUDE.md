@@ -51,7 +51,7 @@ TTFs are Google Fonts (OFL), static instances, subset to Latin, **GSUB removed**
 If you add a font: instance → pyftsubset → delete GSUB → add to FONT_FILES → verify with the e2e PDF text check.
 
 ## Project JSON (stored in D1 `projects.data`)
-`{ id 'p_…', v, title, output, idea, createdAt, updatedAt, plan{layout,artPrompt,designNotes,source}, art{key,url,contentType,layout,output,test?}, artHistory[], text{name,title,body,date,kicker,presented,details,sig1Name,sig1Role,sig2Name,sig2Role}, style{lettering,headColor,textColor,certHead?,certText?,scale,offsetX,offsetY,widthScale,outline}, photo?{key,url,w,h,type,mode,shape,place,size,fade,shading,detail,zoom,fx,fy,subject?} }` — art may also carry `fromPhoto`.`
+`{ id 'p_…', v, title, output, idea, createdAt, updatedAt, plan{layout,artPrompt,designNotes,source}, art{key,url,contentType,layout,output,test?}, artHistory[], text{name,title,body,date,kicker,presented,details,sig1Name,sig1Role,sig2Name,sig2Role}, style{lettering,headColor,textColor,certHead?,certText?,scale,offsetX,offsetY,widthScale,outline}, photo?{key,url,w,h,type,mode,shape,place,size,fade,shading,detail,zoom,fx,fy,subject?} }` — art may also carry `fromPhoto`.
 A signature column renders if name OR role is set (role-only = blank line to sign by hand). Pyrography forces burn tone `#1f1610`.
 
 ## Export UX rules

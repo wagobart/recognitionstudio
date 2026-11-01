@@ -377,10 +377,13 @@ function syncArtSection() {
   $('#switchOutputBtn').textContent = p.output === 'pyrography' ? 'Make the certificate version (same design)' : 'Make the wood-burning version (same design)';
   // page shape: a redraw with artwork (one AI design), instant on a design with no artwork
   const tall = orientOf(p) === 'portrait';
-  $('#orientBtn').disabled = busy;
-  $('#orientBtn').innerHTML = (tall ? 'Redraw as a wide page (landscape)' : 'Redraw as a tall page (portrait)')
-    + (plainOn(p) ? '' : ' <small>uses 1 AI design</small>');
-  if (plainOn(p)) $('#orientBtn').textContent = tall ? 'Make it a wide page (landscape)' : 'Make it a tall page (portrait)';
+  const ob = $('#orientBtn'); // guarded: a page cached from before this button existed must not stop the app
+  if (ob) {
+    ob.disabled = busy;
+    ob.innerHTML = (tall ? 'Redraw as a wide page (landscape)' : 'Redraw as a tall page (portrait)')
+      + (plainOn(p) ? '' : ' <small>uses 1 AI design</small>');
+    if (plainOn(p)) ob.textContent = tall ? 'Make it a wide page (landscape)' : 'Make it a tall page (portrait)';
+  }
   const plain = plainOn(p);
   $('#plainControls').hidden = !plain;
   $('#addArtBtn').disabled = busy;
@@ -454,7 +457,7 @@ $('#redrawBtn').addEventListener('click', () => {
 });
 $('#variationBtn').addEventListener('click', () => generateArt({ layout: state.pendingLayout || undefined, seed: String(Date.now()) }));
 $('#switchOutputBtn').addEventListener('click', () => convertOutput(state.project.output === 'pyrography' ? 'certificate' : 'pyrography'));
-$('#orientBtn').addEventListener('click', () => {
+$('#orientBtn')?.addEventListener('click', () => {
   const p = state.project;
   const to = orientOf(p) === 'portrait' ? 'landscape' : 'portrait';
   if (plainOn(p)) {

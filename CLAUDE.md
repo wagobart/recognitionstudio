@@ -110,7 +110,7 @@ Award-ribbon mark (navy `#1f3a5f` tile, gold rosette + star + ribbon tails). `pu
 Google Analytics 4, property "Crafted In Honor", Measurement ID **G-XETDJV7Y63** (separate from the pyrography-patterns property). Inline script in index.html `<head>` loads gtag.js — skipped on localhost/127.0.0.1 so tests don't pollute data. `page_location` is sent with the `reset` query parameter removed, so password-reset tokens never reach Google (the app strips `?reset=` from the address bar only after app.js runs). Page views only; no custom events yet.
 
 ## Caching (2026-10-31)
-`public/_headers` sends `Cache-Control: no-cache` for `/`, `/index.html`, `/js/*`, `/css/*` (browser re-checks each load; unchanged files are a quick 304). Added after an iPhone showed the new HTML (gallery tabs) with stale JS (tap did nothing). The `?v=` on app.js/app.css in index.html is a belt-and-braces bump — raise it when shipping UI changes.
+`public/_headers` sends `Cache-Control: no-cache` for `/`, `/index.html`, `/js/*`, `/css/*` (browser re-checks each load; unchanged files are a quick 304). Added after an iPhone showed the new HTML (gallery tabs) with stale JS (tap did nothing). The `?v=` on app.js/app.css in index.html is a belt-and-braces bump — raise it when shipping UI changes. **Rule:** app.js must never assume a newly added element exists at load (`$('#new')?.addEventListener`, guard reads) — Safari can pair a stale page with new JS, and one null at top level kills every handler bound after it. 2026-11-01: `#orientBtn` did exactly this and Sign in stopped responding in Safari.
 
 ## Fonts — important
 TTFs are Google Fonts (OFL), static instances, subset to Latin, **GSUB removed**, name table renamed `RS-*`.

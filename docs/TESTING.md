@@ -66,6 +66,9 @@ Local server in live mode with a fake OpenAI key (so nothing is spent): new user
 `tests/e2e_gallery.py`: library idea + added name → art shared by default (switch on, toast says so, listed); switch off removes, on re-lists; own description → switch off, not listed; photo-painted art forced to share is still not listed; duplicated project listed once; deleted project unlisted. Signed-out iPhone visitor sees the gallery with images, tapping asks to sign in then holds the art on the start screen; Design it with no description → that art, 0 AI artwork calls, share switch hidden; editor "Use artwork from the gallery" swaps art (versions 2). Admin Hide removes it for everyone (hidden image → 404 signed out, checked with curl). All other suites re-run and pass.
 Live: gallery seeded with 16 of Bart's artworks; not yet clicked through on the live site.
 
+## Veterans Day gallery patterns, text fit, sign-in race — 2026-10-31
+Three owner patterns load into the gallery from the repo on first gallery request (local check); designing over each with a name: eagle-head and folded-flag lettering fits the open area; eagle-over-lake (short wide box) had the signature row on top of the body → layout shrink floor made size-based, now fits. Intermittent e2e.py sign-in timeouts traced to a real focus race (password typed into email box) and fixed: 30/30 sign-ins, e2e.py clean twice. Library: laurel/vines removed from all ideas where they weren't the subject (11 genuine botanical mentions remain); "1th/21th birthday" → "1st/21st".
+
 ## NOT yet verified — required before calling it production-ready
 - **Planner looking at a photo** with the real text model (test mode uses the built-in planner, which can't see images).
 - **"Paint into art" with the real image model** (the edit endpoint + reference photo; test mode only shows placeholder art). Likeness quality and refusals for photos of people/children unknown.

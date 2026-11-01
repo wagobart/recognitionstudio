@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword, createSession, clearCookie, getUser, endS
 import { LAYOUTS, LETTERING, buildImagePrompt, planWithAI, localPlan } from '../_lib/design.js';
 import { generateImage, FriendlyError } from '../_lib/openai.js';
 import { mockArtSvg } from '../_lib/mockart.js';
+import { GALLERY_SEEDS } from '../_lib/seeds.js';
 
 const isMock = (env) => (env.AI_MODE || '').toLowerCase() === 'mock' || !env.OPENAI_API_KEY;
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v != null ? Number(v) : d);
@@ -390,7 +391,33 @@ route('DELETE', '/api/examples/(ex_[a-z0-9]+)', async ({ env, user, m }) => {
 
 // ---------- public gallery ----------
 const GALLERY_PAGE = 24;
-route('GET', '/api/gallery', async ({ env, user, url }) => {
+
+// Owner-provided artwork shipped with the site (see _lib/seeds.js): copied into R2 and listed once
+let seedsDone = false;
+async function importSeeds(env, request) {
+  if (seedsDone || !GALLERY_SEEDS.length || !env.ASSETS) return;
+  const ids = GALLERY_SEEDS.map((x) => x.id);
+  const { results } = await env.DB.prepare(`SELECT id FROM gallery WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all();
+  const have = new Set(results.map((r) => r.id));
+  const missing = GALLERY_SEEDS.filter((x) => !have.has(x.id));
+  if (!missing.length) { seedsDone = true; return; }
+  const ownerEmail = String(env.ADMIN_EMAILS || '').toLowerCase().split(/[,\s]+/).filter(Boolean)[0];
+  const owner = ownerEmail && (await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(ownerEmail).first());
+  if (!owner) return;
+  for (const x of missing) {
+    const res = await env.ASSETS.fetch(new URL('/gallery-seed/' + x.file, request.url));
+    if (!res.ok) continue;
+    const contentType = res.headers.get('content-type') || 'image/jpeg';
+    const key = `art/${owner.id}/a_${x.id.slice(2)}`;
+    await env.ART.put(key, await res.arrayBuffer(), { httpMetadata: { contentType } });
+    const t = now();
+    await env.DB.prepare('INSERT OR IGNORE INTO gallery (id,project_id,user_id,art_key,output,layout,zone,title,idea,hidden,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,0,?,?)')
+      .bind(x.id, 'seed', owner.id, key, x.output, x.layout, JSON.stringify(x.zone), x.title, x.idea, t, t).run();
+  }
+  seedsDone = true;
+}
+route('GET', '/api/gallery', async ({ env, user, url, request }) => {
+  try { await importSeeds(env, request); } catch (e) { console.log('gallery seed import failed', e.message); }
   const output = url.searchParams.get('output');
   const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
   const where = output === 'pyrography' || output === 'certificate' ? 'hidden=0 AND output=?' : 'hidden=0';

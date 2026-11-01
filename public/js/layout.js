@@ -235,13 +235,16 @@ export function computeLayout(project) {
     return { parts, h };
   }
 
+  // shrink until it fits; the floor keeps body text at least ~14 design units (≈7.5 pt on Letter),
+  // so a wide, short open area (a scene across the top) can go smaller than a narrow one
+  const minScale = Math.min(0.55, Math.max(0.25, 14 / (0.03 * U * userScale)));
   let scale = 1;
   let top, bot;
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 40; i++) {
     top = topStack(scale);
     bot = bottomBlock(scale);
     const gap = bot.h ? U * 0.04 * scale : 0;
-    if (top.h + gap + bot.h <= zone.h || scale < 0.55) break;
+    if (top.h + gap + bot.h <= zone.h || scale < minScale) break;
     scale *= 0.95;
   }
 

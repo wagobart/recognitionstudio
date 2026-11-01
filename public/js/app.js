@@ -1576,7 +1576,9 @@ function needAuth(then) {
   setAuthMode(authMode);
   $('#authTitle').textContent = then ? 'Sign in to design' : 'Sign in';
   openSheet('authSheet');
-  setTimeout(() => $('#authEmail').focus(), 60);
+  // only if they haven't started typing — otherwise a fast typist's (or password manager's)
+  // password would be pulled into the email box
+  setTimeout(() => { if (!$('#authSheet').contains(document.activeElement)) $('#authEmail').focus(); }, 60);
 }
 
 $('#authForm').addEventListener('submit', async (e) => {

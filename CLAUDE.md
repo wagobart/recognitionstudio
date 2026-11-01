@@ -88,7 +88,7 @@ Self-service by email through Resend (`functions/_lib/mail.js`; secret **RESEND_
 - Sign-in sheet modes (`setAuthMode`): login · signup · **forgot** ("Forgot your password?" link → email → "Email me a reset link" → same confirmation whether or not the account exists) · **reset** (opened from `/?reset=<token>`; token removed from the address bar; "New password" → signs in).
 - `POST /api/auth/forgot`: 32-byte token, only its SHA-256 stored in D1 `password_resets`, 1 hour, single use; max 3 per account per hour (extra requests quietly ignored). Without RESEND_API_KEY: local mock server returns `devLink` (tests); anywhere else → 503 "aren't set up yet" (never claims an email was sent).
 - `POST /api/auth/reset`: new PBKDF2 hash, marks token used, **deletes all the user's sessions** (signs out other devices), then signs this device in.
-- Test: `tests/e2e_reset.py`.
+- Test: `tests/e2e_reset.py`. Verified live with a real email on 2026-11-01.
 
 ## Sign-in focus race (fixed 2026-10-31)
 `needAuth` focuses the email box 60 ms after opening — now only if nothing in the sheet has focus yet. Before, a fast typist/password manager (and Playwright) could have the password typed into the email box ("email+password" → 401). This was the cause of the intermittent e2e.py sign-in timeouts.
@@ -116,4 +116,4 @@ A signature column renders if name OR role is set (role-only = blank line to sig
 - Server errors never lose work: localStorage draft is restored if newer than cloud copy.
 
 ## Known gaps (as of 2026-10-31)
-Password reset email depends on RESEND_API_KEY (secret set in Cloudflare 2026-11-01) and a Resend-verified craftedinhonor.com; photos in R2 are never cleaned up; no background removal; no admin UI; orphaned R2 images are never cleaned up; pyrography page sizes are fit-to-paper (no actual-size tiling); real-iPhone behaviour not yet verified; planner can produce awkward lead-in lines — see docs/TESTING.md.
+Password reset by email verified live 2026-11-01 (RESEND_API_KEY set, craftedinhonor.com verified in Resend); photos in R2 are never cleaned up; no background removal; no admin UI; orphaned R2 images are never cleaned up; pyrography page sizes are fit-to-paper (no actual-size tiling); real-iPhone behaviour not yet verified; planner can produce awkward lead-in lines — see docs/TESTING.md.

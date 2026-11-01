@@ -1157,12 +1157,19 @@ async function useGalleryArt(it) {
     } else {
       clearStartGallery();
       state.pendingGallery = { art: res.art, title: res.title, idea: res.idea };
+      // a starting description to add their details to (it only shapes the wording — the artwork stays)
+      const ta = $('#idea');
+      if (!ta.value.trim() || ta.value === state.galPrefill) {
+        state.galPrefill = res.idea || `${res.title}. For `;
+        ta.value = state.galPrefill;
+      }
       $('#startGalThumb').src = res.art.url;
       $('#startGalNote').hidden = false;
       $$('input[name="output"]').forEach((r) => (r.checked = r.value === res.art.output));
       $('#noArtRow').hidden = true;
       closeSheet();
-      toast('Artwork chosen — describe who it’s for (or not), then Design it.', { ms: 3600 });
+      ta.scrollIntoView({ block: 'center' });
+      toast('Artwork chosen — add their name and details, then Design it.', { ms: 3600 });
     }
   } catch (e) {
     if (e.status === 401) return needAuth(() => useGalleryArt(it));
@@ -1171,6 +1178,9 @@ async function useGalleryArt(it) {
 }
 function clearStartGallery() {
   state.pendingGallery = null;
+  // take back the description we filled in, if they didn't change it
+  if (state.galPrefill && $('#idea').value === state.galPrefill) $('#idea').value = '';
+  state.galPrefill = null;
   $('#startGalNote').hidden = true;
   if (state.pendingPhoto) $('#noArtRow').hidden = false;
 }

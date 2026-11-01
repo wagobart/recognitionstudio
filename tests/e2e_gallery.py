@@ -98,6 +98,7 @@ async def main():
         await signin(up, f'galvisitor{T}@example.com', goto=False)
         await up.wait_for_selector('#startGalNote:not([hidden])', timeout=15000)
         await up.screenshot(path=O + 'iphone-2-start-with-art.png')
+        prefill = await up.input_value('#idea')
         await up.click('#designBtn')
         await up.wait_for_function("window.__rs.state.project && window.__rs.state.project.art && document.getElementById('stageOverlay').hidden", timeout=30000)
         await settle(up); await up.wait_for_timeout(800)
@@ -111,7 +112,7 @@ async def main():
         await up.evaluate("const it=[...document.querySelectorAll('.gal-item .gal-open')]; it[it.length>1?1:0].click()")
         await up.wait_for_function("window.__rs.state.project.artHistory.length===2", timeout=15000)
         await settle(up)
-        res['visitor'] = dict(signed_out_gallery=out_view, gallery_start=v, ai_art_calls=len(arts), editor_sheet_seg_hidden=seg_hidden, bad_images=bad, errors=uerrs)
+        res['visitor'] = dict(prefilled_description=prefill, signed_out_gallery=out_view, gallery_start=v, ai_art_calls=len(arts), editor_sheet_seg_hidden=seg_hidden, bad_images=bad, errors=uerrs)
 
         # ---------- admin hides an item ----------
         actx = await b.new_context(viewport={'width': 1280, 'height': 800})

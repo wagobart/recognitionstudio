@@ -16,7 +16,7 @@ ADMIN_EMAILS = "wagobart@gmail.com"      # can add/remove shared Examples (My pr
 ACCOUNT_ART_LIMIT = "15"            # AI artwork designs per account in total (free versions, photos, no-artwork designs don't count)
 UNLIMITED_EMAILS = "wagobart@gmail.com"  # no per-account total (daily limit still applies)
 DAILY_ART_LIMIT = "50"              # artwork generations per user per 24h
-MONTHLY_BUDGET_USD = "25"           # app-side ceiling on estimated monthly AI spend (all users)
+MONTHLY_BUDGET_USD = "75"          # app-side ceiling on estimated monthly AI spend (all users); a scheduled task alerts Bart at 80% and when reached
 EST_COST_PER_IMAGE = "0.10"         # actual 2026-10-31: 37 images + 24 plans = $2.87 (~7.8¢/image); small cushion
 EST_COST_PER_PLAN = "0.01"
 

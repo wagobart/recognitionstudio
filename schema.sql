@@ -58,3 +58,9 @@ CREATE TABLE IF NOT EXISTS example_assets (
   PRIMARY KEY (key, example_id)
 );
 CREATE INDEX IF NOT EXISTS idx_example_assets_ex ON example_assets(example_id);
+
+-- Alerts already sent by the scheduled budget check (one row per alert, e.g. 'budget-80-2026-11')
+CREATE TABLE IF NOT EXISTS app_alerts (
+  key TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL
+);

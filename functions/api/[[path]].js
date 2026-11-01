@@ -35,6 +35,35 @@ async function logGen(env, row) {
     .run();
 }
 
+// The site owner(s) can add and remove shared examples
+const isAdmin = (env, user) => !!user && String(env.ADMIN_EMAILS || '').toLowerCase().split(/[,\s]+/).filter(Boolean).includes(String(user.email || '').toLowerCase());
+
+// Images a user may view: their own, plus any image belonging to a shared example
+async function canView(env, user, key, ownerId) {
+  if (ownerId === user.id) return true;
+  return !!(await env.DB.prepare('SELECT 1 FROM example_assets WHERE key=?').bind(key).first());
+}
+
+// Every R2 image a project refers to (current art, versions, derived-from links, photo)
+const ASSET_RE = /(?:art\/u_[a-z0-9]+\/a_[a-z0-9]+|photo\/u_[a-z0-9]+\/ph_[a-z0-9]+)/g;
+const assetKeys = (raw) => [...new Set(String(raw).match(ASSET_RE) || [])];
+
+// Same summary the projects list uses: enough to draw a thumbnail and pick its sections
+function listItem(r) {
+  let d = {};
+  try { d = JSON.parse(r.data); } catch {}
+  const preview = { output: d.output, art: d.art ? { url: d.art.url, layout: d.art.layout, zone: d.art.zone } : null, plan: { layout: d?.plan?.layout }, text: d.text || {}, style: d.style || {}, photo: d.photo || null, plainBg: !!d.plainBg };
+  // latest artwork of each kind, so a design with both a certificate and a wood-burning
+  // version is listed in both sections
+  const versions = {};
+  for (const a of [...(d.artHistory || []), d.art].filter(Boolean)) {
+    const o = a.output === 'pyrography' ? 'pyrography' : 'certificate';
+    versions[o] = { url: a.url, layout: a.layout, zone: a.zone, key: a.key };
+  }
+  if (d.art) versions[d.art.output === 'pyrography' ? 'pyrography' : 'certificate'] = { url: d.art.url, layout: d.art.layout, zone: d.art.zone, key: d.art.key };
+  return { id: r.id, title: r.title, output: r.output, artUrl: r.art_key ? `/api/${r.art_key}` : null, name: d?.text?.name || '', updatedAt: r.updated_at, preview, versions };
+}
+
 const routes = [];
 const route = (method, pattern, handler, opts = {}) => routes.push({ method, re: new RegExp('^' + pattern + '$'), handler, ...opts });
 
@@ -49,6 +78,7 @@ route('GET', '/api/config', async ({ env, user }) => {
     lettering: LETTERING,
   };
   if (user) out.usage = { ...(await usage(env, user.id)), dailyArtLimit: L.dailyArt };
+  if (user && isAdmin(env, user)) out.admin = true;
   return json(out);
 }, { public: true });
 
@@ -204,7 +234,7 @@ route('POST', '/api/photos', async ({ env, request, user }) => {
 });
 
 route('GET', '/api/photo/(u_[a-z0-9]+)/(ph_[a-z0-9]+)', async ({ env, user, m }) => {
-  if (m[1] !== user.id) return err('Not found', 404);
+  if (!(await canView(env, user, `photo/${m[1]}/${m[2]}`, m[1]))) return err('Not found', 404);
   const obj = await env.ART.get(`photo/${m[1]}/${m[2]}`);
   if (!obj) return err('Not found', 404);
   return new Response(obj.body, {
@@ -213,7 +243,7 @@ route('GET', '/api/photo/(u_[a-z0-9]+)/(ph_[a-z0-9]+)', async ({ env, user, m })
 });
 
 route('GET', '/api/art/(u_[a-z0-9]+)/(a_[a-z0-9]+)', async ({ env, user, m }) => {
-  if (m[1] !== user.id) return err('Not found', 404);
+  if (!(await canView(env, user, `art/${m[1]}/${m[2]}`, m[1]))) return err('Not found', 404);
   const obj = await env.ART.get(`art/${m[1]}/${m[2]}`);
   if (!obj) return err('Not found', 404);
   return new Response(obj.body, {
@@ -226,23 +256,7 @@ route('GET', '/api/projects', async ({ env, user }) => {
   const { results } = await env.DB.prepare('SELECT id,title,output,art_key,data,updated_at FROM projects WHERE user_id=? ORDER BY updated_at DESC LIMIT 200')
     .bind(user.id)
     .all();
-  return json({
-    projects: results.map((r) => {
-      let d = {};
-      try { d = JSON.parse(r.data); } catch {}
-      // enough to draw a true thumbnail (artwork + lettering) without opening the project
-      const preview = { output: d.output, art: d.art ? { url: d.art.url, layout: d.art.layout, zone: d.art.zone } : null, plan: { layout: d?.plan?.layout }, text: d.text || {}, style: d.style || {}, photo: d.photo || null, plainBg: !!d.plainBg };
-      // latest artwork of each kind, so a project with both a certificate and a wood-burning
-      // version can be listed in both sections of My projects
-      const versions = {};
-      for (const a of [...(d.artHistory || []), d.art].filter(Boolean)) {
-        const o = a.output === 'pyrography' ? 'pyrography' : 'certificate';
-        versions[o] = { url: a.url, layout: a.layout, zone: a.zone, key: a.key };
-      }
-      if (d.art) versions[d.art.output === 'pyrography' ? 'pyrography' : 'certificate'] = { url: d.art.url, layout: d.art.layout, zone: d.art.zone, key: d.art.key };
-      return { id: r.id, title: r.title, output: r.output, artUrl: r.art_key ? `/api/${r.art_key}` : null, name: d?.text?.name || '', updatedAt: r.updated_at, preview, versions };
-    }),
-  });
+  return json({ projects: results.map(listItem) });
 });
 
 route('GET', '/api/projects/(p_[a-z0-9]+)', async ({ env, user, m }) => {
@@ -273,6 +287,59 @@ route('PUT', '/api/projects/(p_[a-z0-9]+)', async ({ env, user, m, request }) =>
 
 route('DELETE', '/api/projects/(p_[a-z0-9]+)', async ({ env, user, m }) => {
   await env.DB.prepare('DELETE FROM projects WHERE id=? AND user_id=?').bind(m[1], user.id).run();
+  return json({ ok: true });
+});
+
+// ---------- shared examples ----------
+route('GET', '/api/examples', async ({ env, user }) => {
+  const { results } = await env.DB.prepare('SELECT id,title,output,data,created_at AS updated_at, NULL AS art_key FROM examples ORDER BY title COLLATE NOCASE').all();
+  return json({ examples: results.map(listItem), admin: isAdmin(env, user) });
+});
+
+// Opening an example gives the user their own copy: the project plus its images, copied into
+// their account so every later step (versions, photo, export) works exactly like their own work.
+route('POST', '/api/examples/(ex_[a-z0-9]+)/copy', async ({ env, user, m }) => {
+  const ex = await env.DB.prepare('SELECT data FROM examples WHERE id=?').bind(m[1]).first();
+  if (!ex) return err('That example is no longer available.', 404);
+  let raw = ex.data;
+  for (const key of assetKeys(raw)) {
+    const obj = await env.ART.get(key);
+    if (!obj) continue;
+    const isPhoto = key.startsWith('photo/');
+    const nk = isPhoto ? `photo/${user.id}/${uid('ph_')}` : `art/${user.id}/${uid('a_')}`;
+    await env.ART.put(nk, await obj.arrayBuffer(), { httpMetadata: { contentType: obj.httpMetadata?.contentType || (isPhoto ? 'image/jpeg' : 'image/png') } });
+    raw = raw.split(key).join(nk);
+  }
+  const p = JSON.parse(raw);
+  const t = now();
+  Object.assign(p, { id: uid('p_'), createdAt: t, updatedAt: t, fromExample: m[1] });
+  const out = JSON.stringify(p);
+  const artKey = typeof p?.art?.key === 'string' && p.art.key.startsWith(`art/${user.id}/`) ? p.art.key : null;
+  await env.DB.prepare('INSERT INTO projects (id,user_id,title,output,data,art_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)')
+    .bind(p.id, user.id, clean(p.title, 120) || 'Untitled recognition', p.output === 'pyrography' ? 'pyrography' : 'certificate', out, artKey, t, t)
+    .run();
+  return json({ project: p });
+});
+
+// Owner only: share one of their projects as an example (a snapshot; later edits don't change it)
+route('POST', '/api/examples', async ({ env, request, user }) => {
+  if (!isAdmin(env, user)) return err('Not found', 404);
+  const { projectId } = await readJson(request);
+  const r = await env.DB.prepare('SELECT title,output,data FROM projects WHERE id=? AND user_id=?').bind(String(projectId || ''), user.id).first();
+  if (!r) return err('Project not found', 404);
+  const id = uid('ex_');
+  const stmts = [env.DB.prepare('INSERT INTO examples (id,title,output,data,source_project,created_at) VALUES (?,?,?,?,?,?)').bind(id, r.title, r.output, r.data, projectId, now())];
+  for (const key of assetKeys(r.data)) stmts.push(env.DB.prepare('INSERT OR IGNORE INTO example_assets (key,example_id) VALUES (?,?)').bind(key, id));
+  await env.DB.batch(stmts);
+  return json({ ok: true, id });
+});
+
+route('DELETE', '/api/examples/(ex_[a-z0-9]+)', async ({ env, user, m }) => {
+  if (!isAdmin(env, user)) return err('Not found', 404);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM examples WHERE id=?').bind(m[1]),
+    env.DB.prepare('DELETE FROM example_assets WHERE example_id=?').bind(m[1]),
+  ]);
   return json({ ok: true });
 });
 

@@ -1209,39 +1209,55 @@ async function openProjects() {
   const grid = $('#projGrid');
   grid.innerHTML = '<p class="empty">Loading…</p>';
   try {
-    const { projects } = await api('/api/projects');
+    // examples are a bonus: if they fail to load, the user's own projects still show
+    const [{ projects }, ex] = await Promise.all([api('/api/projects'), api('/api/examples').catch(() => ({ examples: [] }))]);
+    const examples = ex.examples || [];
+    const admin = !!ex.admin;
     grid.innerHTML = '';
-    if (!projects.length) {
-      grid.innerHTML = '<p class="empty">No saved projects yet. Your designs save automatically as you work.</p>';
-      return;
-    }
     const SECTIONS = [
-      { output: 'pyrography', label: 'Wood-burning patterns', empty: 'No wood-burning patterns yet. Choose “Wood-burning pattern” when you start a design, or open a certificate and tap “Make a wood-burning pattern version”.' },
-      { output: 'certificate', label: 'Color certificates', empty: 'No color certificates yet.' },
+      { output: 'pyrography', label: 'Wood-burning patterns', empty: 'No wood-burning patterns of your own yet. Choose “Wood-burning pattern” when you start a design, or open a certificate and tap “Make a wood-burning pattern version”.' },
+      { output: 'certificate', label: 'Color certificates', empty: 'No color certificates of your own yet.' },
     ];
-    // a project shows in every section it has artwork for; one with no artwork yet shows under its current type
+    // a design shows in every section it has artwork for; one with no artwork yet shows under its current type
     const inSection = (pr, o) => (pr.versions && pr.versions[o]) || (!pr.versions?.certificate && !pr.versions?.pyrography && (pr.output || 'certificate') === o);
-    const counts = Object.fromEntries(SECTIONS.map((s) => [s.output, projects.filter((pr) => inSection(pr, s.output)).length]));
+    const mine = Object.fromEntries(SECTIONS.map((s) => [s.output, projects.filter((pr) => inSection(pr, s.output))]));
+    const exs = Object.fromEntries(SECTIONS.map((s) => [s.output, examples.filter((pr) => inSection(pr, s.output))]));
     // the section holding the most recently edited design opens first
-    const order = projects[0].output === 'pyrography' ? SECTIONS : [SECTIONS[1], SECTIONS[0]];
+    const order = projects[0]?.output === 'certificate' || !projects.length ? [SECTIONS[1], SECTIONS[0]] : SECTIONS;
     for (const sec of order) {
       const box = document.createElement('details');
       box.className = 'proj-sec';
       box.dataset.output = sec.output;
       box.open = true;
-      box.innerHTML = `<summary><span class="proj-sec-ico ${sec.output === 'pyrography' ? 'pick-wood' : 'pick-cert'}" aria-hidden="true"></span><b>${sec.label}</b><span class="proj-count">${counts[sec.output]}</span></summary><div class="proj-grid"></div>`;
+      box.innerHTML = `<summary><span class="proj-sec-ico ${sec.output === 'pyrography' ? 'pick-wood' : 'pick-cert'}" aria-hidden="true"></span><b>${sec.label}</b><span class="proj-count">${mine[sec.output].length}</span></summary><div class="proj-grid"></div>`;
       const g = box.querySelector('.proj-grid');
-      if (!counts[sec.output]) g.innerHTML = `<p class="empty">${sec.empty}</p>`;
-      for (const pr of projects.filter((x) => inSection(x, sec.output))) g.appendChild(projectCard(pr, sec.output));
+      if (!mine[sec.output].length)
+        g.innerHTML = exs[sec.output].length
+          ? `<p class="empty compact">None of your own yet — start from an example below, or start a new design.</p>`
+          : `<p class="empty">${sec.empty}</p>`;
+      for (const pr of mine[sec.output]) g.appendChild(projectCard(pr, sec.output, { admin }));
+      if (exs[sec.output].length) {
+        // ready-made examples anyone can start from; folded away once you have designs of your own
+        const exBox = document.createElement('details');
+        exBox.className = 'proj-ex';
+        exBox.open = !mine[sec.output].length;
+        exBox.innerHTML = `<summary><b>Examples</b><span class="proj-count">${exs[sec.output].length}</span><small>Open one to get your own copy to edit</small></summary><div class="proj-grid"></div>`;
+        const eg = exBox.querySelector('.proj-grid');
+        // thumbnails are drawn only when the examples are first shown
+        const fill = () => { if (!eg.childElementCount) for (const pr of exs[sec.output]) eg.appendChild(projectCard(pr, sec.output, { example: true, admin })); };
+        if (exBox.open) fill();
+        exBox.addEventListener('toggle', () => exBox.open && fill());
+        box.appendChild(exBox);
+      }
       grid.appendChild(box);
     }
   } catch (e) {
     grid.innerHTML = `<p class="empty">Couldn’t load projects: ${e.message}</p>`;
   }
 }
-function projectCard(pr, output) {
+function projectCard(pr, output, { example = false, admin = false } = {}) {
   const card = document.createElement('div');
-  card.className = 'proj';
+  card.className = 'proj' + (example ? ' proj-example' : '');
   card.dataset.id = pr.id;
   const other = output === 'pyrography' ? 'certificate' : 'pyrography';
   const both = pr.versions?.[other];
@@ -1266,19 +1282,30 @@ function projectCard(pr, output) {
   } else if (v?.url || pr.artUrl) thumb.style.backgroundImage = `url("${v?.url || pr.artUrl}")`;
   const award = pr.preview?.text?.title || pr.title;
   card.querySelector('b').textContent = pr.name || award;
-  card.querySelector('small').textContent = (pr.name ? award + ' · ' : '') + timeAgo(pr.updatedAt);
-  const open = () => openProject(pr.id, { output });
+  card.querySelector('small').textContent = (pr.name ? award + ' · ' : '') + (example ? 'Example' : timeAgo(pr.updatedAt));
+  const open = () => (example ? copyExample(pr.id, output) : openProject(pr.id, { output }));
   card.querySelector('.proj-open').addEventListener('click', open);
   card.querySelector('.proj-menu').addEventListener('click', (e) => {
     e.stopPropagation();
     $$('.proj-actions').forEach((m) => m.remove());
     const m = document.createElement('div');
     m.className = 'proj-actions';
-    m.innerHTML = `<button type="button" data-a="open">Open</button><button type="button" data-a="dup">Duplicate</button><button type="button" class="danger" data-a="del">Delete</button>`;
+    m.innerHTML = example
+      ? `<button type="button" data-a="open">Open a copy</button>${admin ? '<button type="button" class="danger" data-a="unshare">Remove from Examples</button>' : ''}`
+      : `<button type="button" data-a="open">Open</button><button type="button" data-a="dup">Duplicate</button>${admin ? '<button type="button" data-a="share">Add to Examples</button>' : ''}<button type="button" class="danger" data-a="del">Delete</button>`;
     m.addEventListener('click', async (ev) => {
       const a = ev.target.dataset.a;
       m.remove();
       if (a === 'open') open();
+      if (a === 'share') {
+        try { await api('/api/examples', { method: 'POST', body: { projectId: pr.id } }); toast('Added to Examples for everyone ✓'); openProjects(); }
+        catch (e2) { toast('Couldn’t add it: ' + e2.message, { error: true }); }
+      }
+      if (a === 'unshare' && confirm(`Remove “${pr.name || pr.title}” from Examples for everyone? Copies people already made stay theirs.`)) {
+        try { await api(`/api/examples/${pr.id}`, { method: 'DELETE' }); openProjects(); }
+        catch (e2) { toast('Couldn’t remove it: ' + e2.message, { error: true }); }
+      }
+      if (example) return;
       if (a === 'dup') duplicateProject(pr.id);
       const warn = both ? `\n\nThis also deletes its ${other === 'pyrography' ? 'wood-burning pattern' : 'color certificate'} version.` : '';
       if (a === 'del' && confirm(`Delete “${pr.name || pr.title}”? This can’t be undone.${warn}`)) {
@@ -1333,6 +1360,26 @@ function loadIntoEditor(p) {
   render();
   // older designs: measure the empty area once
   if (p.art && !p.art.zone) fitZone(p.art).then(() => { if (p.art.zone && state.project === p) { render(); markDirty(); } });
+}
+
+// Opening an example: the server copies it (with its images) into the user's account
+async function copyExample(id, output) {
+  toast('Making your own copy…', { ms: 1500 });
+  try {
+    await saveNow();
+    const { project } = await api(`/api/examples/${id}/copy`, { method: 'POST' });
+    const p = migrate(project);
+    if (output && p.art && (p.art.output || 'certificate') !== output) {
+      const v = [...p.artHistory].reverse().find((a) => (a.output || 'certificate') === output);
+      if (v) useArtVersion(p, v);
+    }
+    loadIntoEditor(p);
+    closeSheet();
+    markDirty();
+    toast('This is your own copy of the example — change anything you like. It’s saved in My projects.', { ms: 4200 });
+  } catch (e) {
+    toast('Couldn’t open that example: ' + e.message, { error: true });
+  }
 }
 
 async function duplicateProject(id) {

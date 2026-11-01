@@ -347,3 +347,14 @@ svg { flex: none; }
 #plainControls { margin-bottom: 8px; }
 #plainControls .toggle { margin: 4px 0 14px; }
 #noArtBtn { display: block; margin-top: 6px; }
+
+/* Shared examples, a fold-out under each My projects section */
+.proj-ex { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 4px; }
+.proj-ex > summary { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; cursor: pointer; min-height: 44px; padding: 6px 0; }
+.proj-ex > summary::-webkit-details-marker { display: none; }
+.proj-ex > summary b { font-size: 15px; }
+.proj-ex > summary small { flex-basis: 100%; order: 3; color: var(--muted); font-size: 12.5px; margin-top: -2px; }
+.proj-ex > summary::after { content: ''; margin-left: auto; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .2s; margin-top: -4px; }
+.proj-ex[open] > summary::after { transform: rotate(225deg); margin-top: 4px; }
+.proj-ex > .proj-grid { margin-top: 6px; }
+.empty.compact { padding: 2px 0 4px; text-align: left; grid-column: 1 / -1; font-size: 14px; }

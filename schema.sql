@@ -39,3 +39,22 @@ CREATE TABLE IF NOT EXISTS generations (
 );
 CREATE INDEX IF NOT EXISTS idx_gen_user_time ON generations(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_gen_time ON generations(created_at);
+
+-- Shared examples every signed-in user sees under My projects → Examples.
+-- A snapshot of a project's JSON; its images stay where they are in R2 and are listed in
+-- example_assets so any signed-in user may view them. Opening an example copies it (and its
+-- images) into the user's own account.
+CREATE TABLE IF NOT EXISTS examples (
+  id TEXT PRIMARY KEY,           -- 'ex_…'
+  title TEXT NOT NULL,
+  output TEXT NOT NULL,
+  data TEXT NOT NULL,
+  source_project TEXT,           -- the owner's project it was made from
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS example_assets (
+  key TEXT NOT NULL,             -- R2 key (art/… or photo/…) readable by any signed-in user
+  example_id TEXT NOT NULL,
+  PRIMARY KEY (key, example_id)
+);
+CREATE INDEX IF NOT EXISTS idx_example_assets_ex ON example_assets(example_id);

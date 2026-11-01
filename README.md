@@ -60,6 +60,7 @@ Note: `[vars]` in `wrangler.toml` override dashboard values on every deploy — 
 | `IMAGE_SIZE` / `IMAGE_QUALITY` | `1536x1024` / `high` | 3:2 landscape |
 | `PLANNER_MODEL` | `gpt-4.1-mini` | Text model that plans layout/wording; falls back to a built-in planner if it fails |
 | `SIGNUP_MODE`, `ALLOWED_EMAILS` | `invite`, owner email | Who can register |
+| `ADMIN_EMAILS` | owner email | Who can add/remove shared Examples (⋯ menu in My projects) |
 | `DAILY_ART_LIMIT`, `MONTHLY_BUDGET_USD`, `EST_COST_PER_IMAGE` | 30, 25, 0.25 | Spending guards |
 
 ## Local development

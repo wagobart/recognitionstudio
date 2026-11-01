@@ -229,7 +229,7 @@ async def main():
                 await run_case(browser, c, results)
             except Exception as e:
                 import traceback
-                results.append(dict(slug=c['slug'], ok=False, errors=[traceback.format_exc()[-900:]]))
+                results.append(dict(slug=c['slug'], ok=False, errors=[traceback.format_exc()[-2500:]]))
             print(json.dumps(results[-1]))
         await browser.close()
         json.dump(results, open(f'{OUT}/results.json', 'w'), indent=1)

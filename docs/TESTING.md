@@ -55,6 +55,10 @@ Fixed while testing: lettering shrank too much beside a photo — now keeps near
 
 Photo-only start (`tests/e2e_photo_start.py`, passing, test mode): no description + no photo → nudge; photo only → design starts (iPhone 15 emulation wood-burning → graphite; desktop certificate → color).
 
+## Shared Examples — 2026-10-31 (test mode)
+`tests/e2e_examples.py`: admin (desktop) adds a certificate and a no-artwork photo pattern to Examples from the ⋯ menu; a brand-new user (iPhone 15 emulation) sees Examples open in both sections, thumbnails load (no blocked images), sees only "Open a copy", opens each → own copy with every image copied into their account, edits the name, PDF has it; copies then list as their own designs and the Examples fold closes. Admin removes the example → copy still loads its artwork. All other suites re-run and pass (e2e.py's occasional 30 s timeout on one case pre-dates this; three clean runs after).
+Live: 18 of Bart's projects seeded into Examples directly in D1; every image key they reference is in `example_assets` (checked by query). Not yet clicked through on the live site.
+
 ## NOT yet verified — required before calling it production-ready
 - **Planner looking at a photo** with the real text model (test mode uses the built-in planner, which can't see images).
 - **"Paint into art" with the real image model** (the edit endpoint + reference photo; test mode only shows placeholder art). Likeness quality and refusals for photos of people/children unknown.

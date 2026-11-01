@@ -17,7 +17,7 @@ ACCOUNT_ART_LIMIT = "15"            # AI artwork designs per account in total (f
 UNLIMITED_EMAILS = "wagobart@gmail.com"  # no per-account total (daily limit still applies)
 DAILY_ART_LIMIT = "50"              # artwork generations per user per 24h
 MONTHLY_BUDGET_USD = "25"           # app-side ceiling on estimated monthly AI spend (all users)
-EST_COST_PER_IMAGE = "0.15"         # measured ~$0.12 per design (8 images + plans = $0.97 on 2026-10-31); small cushion
+EST_COST_PER_IMAGE = "0.10"         # actual 2026-10-31: 37 images + 24 plans = $2.87 (~7.8¢/image); small cushion
 EST_COST_PER_PLAN = "0.01"
 
 [[d1_databases]]

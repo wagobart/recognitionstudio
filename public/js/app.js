@@ -403,7 +403,16 @@ function syncArtSection() {
   const u = state.config?.usage;
   $('#usageNote').textContent = state.config?.mode === 'test'
     ? 'Test mode: artwork is a free placeholder (no AI).'
-    : u ? `${Math.max(0, u.dailyArtLimit - u.artToday)} of ${u.dailyArtLimit} artwork designs left today.` : '';
+    : u ? artLeftText(u) : '';
+}
+// Accounts have a total number of AI artwork designs (the owner's has none); the daily limit applies to everyone
+function artLeftText(u) {
+  if (u.accountArtLimit != null) {
+    const left = Math.max(0, u.accountArtLimit - u.artTotal);
+    return left ? `${left} of ${u.accountArtLimit} AI artwork designs left on your account. Wording, lettering, photos and versions are always free.`
+      : `You’ve used all ${u.accountArtLimit} AI artwork designs on your account. Wording, lettering, photos and versions are still free.`;
+  }
+  return `${Math.max(0, u.dailyArtLimit - u.artToday)} of ${u.dailyArtLimit} artwork designs left today.`;
 }
 
 $('#redrawBtn').addEventListener('click', () => {
@@ -1448,7 +1457,7 @@ $('#accountBtn').addEventListener('click', () => {
   if (!state.user) return needAuth();
   $('#acctEmail').textContent = state.user.email;
   const u = state.config?.usage;
-  $('#acctUsage').textContent = state.config?.mode === 'test' ? 'Server is in test mode (placeholder artwork, no AI cost).' : u ? `Artwork designs used in the last 24 hours: ${u.artToday} of ${u.dailyArtLimit}.` : '';
+  $('#acctUsage').textContent = state.config?.mode === 'test' ? 'Server is in test mode (placeholder artwork, no AI cost).' : u ? (u.accountArtLimit != null ? `AI artwork designs used: ${u.artTotal} of ${u.accountArtLimit}.` : `Artwork designs used in the last 24 hours: ${u.artToday} of ${u.dailyArtLimit} (no account total).`) : '';
   openSheet('accountSheet');
 });
 $('#signOutBtn').addEventListener('click', async () => {

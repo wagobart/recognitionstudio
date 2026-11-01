@@ -12,21 +12,26 @@ const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v != null ? Num
 function limits(env) {
   return {
     dailyArt: num(env.DAILY_ART_LIMIT, 30),
+    accountArt: num(env.ACCOUNT_ART_LIMIT, 15), // total AI artwork designs per account, ever
     monthlyBudget: num(env.MONTHLY_BUDGET_USD, 25),
     artCost: num(env.EST_COST_PER_IMAGE, 0.25),
     planCost: num(env.EST_COST_PER_PLAN, 0.01),
   };
 }
 
+// Accounts in UNLIMITED_EMAILS (the owner) have no per-account total
+const unlimited = (env, user) => !!user && String(env.UNLIMITED_EMAILS || '').toLowerCase().split(/[,\s]+/).filter(Boolean).includes(String(user.email || '').toLowerCase());
+
 async function usage(env, userId) {
   const dayStart = now() - 864e5;
   const d = new Date();
   const monthStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
-  const [u, m] = await Promise.all([
+  const [u, t, m] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) n FROM generations WHERE user_id=? AND kind='art' AND status!='error' AND created_at>?").bind(userId, dayStart).first(),
+    env.DB.prepare("SELECT COUNT(*) n FROM generations WHERE user_id=? AND kind='art' AND status!='error'").bind(userId).first(),
     env.DB.prepare("SELECT COALESCE(SUM(est_cost),0) s FROM generations WHERE status!='error' AND created_at>?").bind(monthStart).first(),
   ]);
-  return { artToday: u.n, monthSpend: m.s };
+  return { artToday: u.n, artTotal: t.n, monthSpend: m.s };
 }
 
 async function logGen(env, row) {
@@ -77,7 +82,7 @@ route('GET', '/api/config', async ({ env, user }) => {
     layouts: Object.fromEntries(Object.entries(LAYOUTS).map(([k, v]) => [k, v.label])),
     lettering: LETTERING,
   };
-  if (user) out.usage = { ...(await usage(env, user.id)), dailyArtLimit: L.dailyArt };
+  if (user) out.usage = { ...(await usage(env, user.id)), dailyArtLimit: L.dailyArt, accountArtLimit: unlimited(env, user) ? null : L.accountArt };
   if (user && isAdmin(env, user)) out.admin = true;
   return json(out);
 }, { public: true });
@@ -172,6 +177,8 @@ route('POST', '/api/art', async ({ env, request, user }) => {
   }
 
   const u = await usage(env, user.id);
+  if (!unlimited(env, user) && u.artTotal >= L.accountArt)
+    return err(`You’ve used all ${L.accountArt} AI artwork designs included with your account. Everything you’ve made is saved — you can still edit wording and lettering, add photos, make the wood-burning or certificate version, start from Examples, use “No artwork”, and export.`, 429, { code: 'account_limit' });
   if (u.artToday >= L.dailyArt)
     return err(`You’ve reached today’s limit of ${L.dailyArt} artwork designs. Your project and wording are saved — you can keep editing lettering and export.`, 429, { code: 'daily_limit' });
   if (u.monthSpend + L.artCost > L.monthlyBudget)

@@ -46,6 +46,12 @@ font/color/size/position changes never call the AI and never cost money.
 - Result is uploaded as JPEG to `POST /api/art/derived?from=&output=&layout=` (no cost, no usage log) and gets `derivedFrom`, plus the source's `zone` and `fromPhoto`, so lettering sits exactly where it did. A color photo layer switches to graphite for the pattern (`wasColor`) and back.
 Older projects whose two versions were AI-drawn separately (before 2026-10-31 evening) still differ; re-run the button from the certificate to get an exact pattern.
 
+## Accounts and AI limits (2026-10-31, for the veterans-gift launch)
+- Sign-ups are **open** (`SIGNUP_MODE = "open"`; `ALLOWED_EMAILS` only matters if switched back to "invite"). No email verification — one person can make several accounts.
+- Every account gets **15 AI artwork designs in total** (`ACCOUNT_ART_LIMIT`, counted from `generations` kind='art' status≠'error', all time — existing accounts included). Accounts in `UNLIMITED_EMAILS` (wagobart@gmail.com) have no total. Over the limit `/api/art` → 429 `account_limit` with a message listing what's still free. Plans, derived versions (`/api/art/derived`), photos and no-artwork designs never count. Test mode (`AI_MODE=mock`) is never limited.
+- Still applies to everyone: `DAILY_ART_LIMIT` 50/24h and the site-wide `MONTHLY_BUDGET_USD` guard (blocks **all** accounts, the owner's too, once estimated monthly spend is reached).
+- `/api/config` usage: `artToday, artTotal, monthSpend, dailyArtLimit, accountArtLimit` (null = unlimited). The Artwork section note and Account sheet show "N of 15 AI artwork designs left" (`artLeftText`).
+
 ## Shared Examples (added 2026-10-31)
 Every signed-in user sees an **Examples** fold-out under each My projects section (Wood-burning patterns / Color certificates), listed by the same `versions` rule as their own projects. Open by default only when the user has none of their own in that section; thumbnails are drawn when first opened.
 - D1 `examples` (snapshot of a project's JSON, id `ex_…`, `source_project`) + `example_assets(key, example_id)` = the R2 images (art, versions, `derivedFrom`, `fromPhoto`, photo) any signed-in user may view. `GET /api/art/...` and `GET /api/photo/...` allow owner **or** a key in `example_assets` (`canView`). Example images stay in the owner's R2 folder — if R2 cleanup is ever added it must skip keys in `example_assets`.

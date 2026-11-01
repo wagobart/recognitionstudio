@@ -59,6 +59,9 @@ Photo-only start (`tests/e2e_photo_start.py`, passing, test mode): no descriptio
 `tests/e2e_examples.py`: admin (desktop) adds a certificate and a no-artwork photo pattern to Examples from the ⋯ menu; a brand-new user (iPhone 15 emulation) sees Examples open in both sections, thumbnails load (no blocked images), sees only "Open a copy", opens each → own copy with every image copied into their account, edits the name, PDF has it; copies then list as their own designs and the Examples fold closes. Admin removes the example → copy still loads its artwork. All other suites re-run and pass (e2e.py's occasional 30 s timeout on one case pre-dates this; three clean runs after).
 Live: 18 of Bart's projects seeded into Examples directly in D1; every image key they reference is in `example_assets` (checked by query). Not yet clicked through on the live site.
 
+## Per-account artwork limit — 2026-10-31
+Local server in live mode with a fake OpenAI key (so nothing is spent): new user with 14 designs used → request passes the limit check (then fails reaching OpenAI, as expected); at 15 → 429 `account_limit` with the friendly message; owner (UNLIMITED_EMAILS) with 20 used → passes. `/api/config` reports `accountArtLimit` 15 vs null. e2e.py re-run: all 7 pass.
+
 ## NOT yet verified — required before calling it production-ready
 - **Planner looking at a photo** with the real text model (test mode uses the built-in planner, which can't see images).
 - **"Paint into art" with the real image model** (the edit endpoint + reference photo; test mode only shows placeholder art). Likeness quality and refusals for photos of people/children unknown.

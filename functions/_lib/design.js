@@ -51,6 +51,7 @@ export function buildImagePrompt({ artPrompt, layout, output, photo }) {
     return [
       'Photorealistic graphite pencil drawing to be used as a pyrography (wood burning) reference, horizontal 3:2 landscape page, clean white paper background.',
       `Subject and motifs: ${artPrompt}.`,
+      'Keep it uncluttered: one clear focal subject with only a few supporting details, never a collage of symbols.',
       `Composition: ${L.art}.`,
       'Style: highly detailed, lifelike graphite rendering with smooth tonal shading from soft light grays to deep charcoal blacks, realistic textures (fur, wood grain, metal, fabric), strong form and lighting, and crisp edges on the main subjects. Grayscale only: no color, no colored tints, no paint or ink washes. Keep the empty lettering area pure white paper with no smudges, shading or texture.',
       NO_TEXT,
@@ -60,6 +61,7 @@ export function buildImagePrompt({ artPrompt, layout, output, photo }) {
   return [
     'Printable award certificate background artwork, horizontal 3:2 landscape page, premium and professional.',
     `Theme and motifs: ${artPrompt}.`,
+    'Keep it uncluttered: one clear focal subject with only a few supporting details, never a collage of symbols.',
     `Composition: ${L.art}.`,
     'Rich, crisp, print-quality illustration with tasteful, harmonious colors; the empty area must be light and even in tone so dark lettering is easy to read on it.',
     NO_TEXT,
@@ -95,7 +97,7 @@ const PLAN_SCHEMA = {
 
 const PLANNER_SYSTEM = `You are the art director for Crafted In Honor, which makes personalized awards, certificates and wood-burning (pyrography) recognition pieces.
 Given the user's idea, plan ONE design:
-- artPrompt: a vivid, specific description (60-110 words) of the decorative artwork ONLY. Work the recipient's real profession, interests, achievement and occasion into concrete objects and motifs (e.g. a union carpenter's retirement: a leather tool belt with hammer, tape measure, framing square and pencil, and wood grain; a veteran: the flag, stars, an eagle, service insignia shapes, dog tags, medals). Build borders from those objects and simple bands (rope, stripes, stars, rules) — do NOT add generic leaves, vines, flowers, wreaths or floral scrollwork unless the user's idea asks for them or the subject is botanical (a garden, a florist). Never ask for text, names, numbers or lettering in the art.
+- artPrompt: a vivid, specific description (60-110 words) of the decorative artwork ONLY. Work the recipient's real profession, interests, achievement and occasion into concrete objects and motifs (e.g. a union carpenter's retirement: a well-worn leather tool belt holding a hammer and tape measure, over warm wood grain; a veteran: a bald eagle in flight over a quiet sunrise). Restraint matters: choose ONE focal subject and at most two supporting motifs. When a theme has many familiar symbols (a flag, stars, an eagle, insignia, dog tags, medals, anchors), pick the one or two that suit this person best — never pile them all in. Fewer, larger, well-drawn elements with breathing room look more dignified than a collage. Build borders from those motifs or a simple band (rope, stripes, a row of stars, plain rules) — do NOT add generic leaves, vines, flowers, wreaths or floral scrollwork unless the user's idea asks for them or the subject is botanical (a garden, a florist). Never ask for text, names, numbers or lettering in the art.
 - layout: choose the composition that suits the subject: framed (motifs woven into a border, most formal), crest (one hero emblem on top), art-left / art-right (a tall featured illustration), scene (a landscape or workplace scene along the bottom).
 - lettering: classic (Garamond book serif), engraved (Roman capitals), elegant (flowing script name), diploma (Old English blackletter), modern (clean sans), workshop (sturdy slab serif), frontier (western woodtype), personal (handwritten).
 - headColor/textColor: hex colors that read well on the art's light empty area. For pyrography use near-black browns only.

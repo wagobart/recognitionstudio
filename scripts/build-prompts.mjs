@@ -175,22 +175,24 @@ for (const [n, cat, m, pal, extra] of careers) {
 
 // ---------------- Military & veterans ----------------
 const branches = [
-  ['Army', 'crossed rifles, a five-pointed star, an American flag, dog tags and a rugged mountain landscape', 'olive drab, gold and black'],
-  ['Navy', 'a fouled anchor, ship’s wheel, rope border and ocean waves', 'navy blue, gold and white'],
-  ['Marine Corps', 'an eagle, globe and anchor style emblem left without lettering, crossed swords and a waving American flag', 'scarlet, gold and black'],
-  ['Air Force', 'aviator wings, a jet contrail across the sky and stars', 'ultramarine, silver and white'],
-  ['Coast Guard', 'a lighthouse, crossed anchors, a cutter on rolling waves and life rings', 'coast guard blue, orange and white'],
-  ['National Guard', 'a minuteman silhouette, a star, the American flag and a hometown landscape', 'olive, gold and navy'],
-  ['Space Force', 'a delta emblem, orbiting satellites, Earth from space and stars', 'deep space blue, silver and white'],
-  ['Veteran (any branch)', 'a folded flag, dog tags, a bald eagle and a sunrise over a field of stars', 'navy, gold and red'],
+  ['Army', 'a single five-pointed star above a rugged mountain landscape', 'olive drab, gold and black'],
+  ['Navy', 'a fouled anchor framed by a simple rope border', 'navy blue, gold and white'],
+  ['Marine Corps', 'an eagle, globe and anchor style emblem left without lettering', 'scarlet, gold and black'],
+  ['Air Force', 'aviator wings above a jet contrail across an open sky', 'ultramarine, silver and white'],
+  ['Coast Guard', 'a lighthouse above rolling waves', 'coast guard blue, orange and white'],
+  ['National Guard', 'a minuteman silhouette against a hometown landscape', 'olive, gold and navy'],
+  ['Space Force', 'a delta emblem above Earth seen from space', 'deep space blue, silver and white'],
+  ['Veteran (any branch)', 'a bald eagle in flight over a quiet sunrise', 'navy, gold and red'],
 ];
 for (const [b, m, pal] of branches) {
+  const any = b === 'Veteran (any branch)';
   const a = /^[AEIOU]/.test(b) ? 'an' : 'a';
-  add('Military & Veterans', 'Appreciation', `${b} service appreciation`, `Certificate of appreciation for ${b === 'Veteran (any branch)' ? 'a veteran' : a + ' ' + b + ' veteran'} — ${m}, dignified and grateful; ${pal} tones.`, b + ' veteran');
-  add('Military & Veterans', 'Retirement', `${b} retirement`, `Military retirement recognition for ${a} ${b} service member after a full career — ${m}, formal and honorable; ${pal} tones.`, b);
-  add('Military & Veterans', 'Honor', `${b} Veterans Day honor`, `Veterans Day honor for ${a} ${b} veteran — ${m}, with a quiet, reverent Veterans Day feel; ${pal} tones.`, b + ' veterans day');
-  add('Military & Veterans', 'Completion & Certification', `${b} promotion`, `Promotion recognition for ${a} ${b} service member — ${m}, crisp and official; ${pal} tones.`, b + ' promotion rank');
-  add('Military & Veterans', 'Family', `${b} military family thank-you`, `Thank-you certificate for the family of a deployed ${b} service member — ${m}, warm with a home and heart motif; ${pal} tones.`, b + ' spouse family');
+  const who = (x) => (any ? `a ${x}` : `${a} ${b} ${x}`);
+  add('Military & Veterans', 'Appreciation', `${b} service appreciation`, `Certificate of appreciation for ${who('veteran')} — ${m}, dignified and grateful; ${pal} tones.`, b + ' veteran');
+  add('Military & Veterans', 'Retirement', `${b} retirement`, `Military retirement recognition for ${who('service member')} after a full career — ${m}, formal and honorable; ${pal} tones.`, b);
+  add('Military & Veterans', 'Honor', `${b} Veterans Day honor`, `Veterans Day honor for ${who('veteran')} — ${m}, with a quiet, reverent Veterans Day feel; ${pal} tones.`, b + ' veterans day');
+  add('Military & Veterans', 'Completion & Certification', `${b} promotion`, `Promotion recognition for ${who('service member')} — ${m}, crisp and official; ${pal} tones.`, b + ' promotion rank');
+  add('Military & Veterans', 'Family', `${b} military family thank-you`, `Thank-you certificate for the family of ${any ? 'a deployed service member' : 'a deployed ' + b + ' service member'} — ${m}, warm with a home and heart motif; ${pal} tones.`, b + ' spouse family');
 }
 const firstResp = [
   ['Firefighter lifesaving award', 'a Maltese cross, helmet, hose and a rescued family silhouette', 'fire red, gold and black'],
@@ -199,7 +201,7 @@ const firstResp = [
   ['Search and rescue volunteer', 'a rescue helicopter, mountains, rope and a K9 silhouette', 'rescue orange, slate and white'],
   ['Volunteer fire department', 'a vintage engine, a small-town firehouse and a Maltese cross', 'fire red, gold and cream'],
   ['K9 officer', 'a German shepherd, a badge, a leash and paw prints', 'navy, tan and gold'],
-  ['Honor guard', 'crossed flags, white gloves, a bugle and a rifle salute', 'navy, gold and white'],
+  ['Honor guard', 'a bugle and white-gloved hands in salute', 'navy, gold and white'],
   ['Chaplain', 'a dove, a badge-shaped shield, an open book and soft light', 'deep blue, gold and ivory'],
 ];
 for (const [t, m, pal] of firstResp) add('Public Service', 'Honor', t, `${t} — ${m}, honorable and heroic; ${pal} tones.`, 'first responder');
@@ -447,7 +449,7 @@ for (const [t, m] of fun) add('Fun & Lighthearted', 'Fun', t, `Lighthearted "${t
 const memorial = [
   ['In loving memory', 'doves, lilies and soft light through clouds'],
   ['Celebration of life', 'sunflowers, a sunrise and butterflies'],
-  ['Memorial for a veteran', 'a folded flag, dog tags, a single red poppy and a sunrise'],
+  ['Memorial for a veteran', 'a folded flag in soft morning light'],
   ['Memorial for a firefighter', 'a Maltese cross, helmet and bagpipes'],
   ['Memorial for a police officer', 'a badge with mourning band, a folded flag and a thin blue line'],
   ['Memorial for a farmer', 'a red barn at sunset, wheat and an empty tractor seat'],
@@ -512,7 +514,7 @@ const pyro = [
   ['Farm family heritage plaque', 'a barn, windmill and wheat with a winding lane'],
   ['Grandpa’s workshop plaque', 'a workbench, hand plane and hanging saws'],
   ['Retired firefighter plaque', 'a Maltese cross with helmet, axes and hose'],
-  ['Veteran honor plaque', 'an eagle with spread wings above a folded flag and stars'],
+  ['Veteran honor plaque', 'an eagle with spread wings above a folded flag'],
   ['Coach appreciation plaque', 'a whistle, clipboard and the sport’s ball'],
   ['Teacher thank-you plaque', 'an apple, books and a pencil framed by a chalkboard border'],
   ['Nurse appreciation plaque', 'a stethoscope forming a heart with roses'],

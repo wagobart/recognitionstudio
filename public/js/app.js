@@ -4,7 +4,7 @@ import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js';
 import { CHIPS, loadLibrary, searchLibrary } from './library.js';
 import { detectZone } from './zone.js';
 import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js';
-import { zoneFor, plainOn } from './layout.js';
+import { zoneFor, plainOn, orientOf } from './layout.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -103,12 +103,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ---------------- project model ----------------
-function blankProject(idea, output) {
+function blankProject(idea, output, orient = 'landscape') {
   return {
     id: newId(),
     v: 1,
     title: 'New recognition',
     output,
+    orient,
     idea,
     createdAt: Date.now(),
     plan: { layout: 'framed', artPrompt: '', designNotes: '', source: '' },
@@ -154,6 +155,7 @@ function render() {
     }
     if (gen !== renderGen || state.project !== p) return; // a newer render has started
     p._placeholders = true;
+    $('#stage').classList.toggle('portrait', orientOf(p) === 'portrait');
     $('#sheetHolder').innerHTML = svgMarkup(p);
     const hot = document.activeElement?.dataset?.field;
     if (hot) $$(`#sheetHolder text[data-field="${hot}"]`).forEach((t) => t.classList.add('hot'));
@@ -208,7 +210,7 @@ function updateSummaries() {
   $('#letteringSummary').textContent = `${st.label} lettering · ${Math.round(p.style.scale * 100)}%`;
   $('#artSummary').textContent = plainOn(p)
     ? `No artwork · ${p.output === 'pyrography' ? 'wood-burning pattern' : 'certificate'}`
-    : p.art ? `${LAYOUT_LABELS[p.art.layout] || 'Custom'} · ${p.output === 'pyrography' ? 'wood-burning pattern' : 'color certificate'}` : 'Being created…';
+    : p.art ? `${LAYOUT_LABELS[p.art.layout] || 'Custom'}${orientOf(p) === 'portrait' ? ' · tall page' : ''} · ${p.output === 'pyrography' ? 'wood-burning pattern' : 'color certificate'}` : 'Being created…';
 }
 
 function autosize(el) {
@@ -373,6 +375,12 @@ function syncArtSection() {
   $('#switchOutputBtn').disabled = busy;
   $('#redrawBtn').textContent = state.pendingLayout ? 'Redraw with new composition' : 'Redraw with change';
   $('#switchOutputBtn').textContent = p.output === 'pyrography' ? 'Make the certificate version (same design)' : 'Make the wood-burning version (same design)';
+  // page shape: a redraw with artwork (one AI design), instant on a design with no artwork
+  const tall = orientOf(p) === 'portrait';
+  $('#orientBtn').disabled = busy;
+  $('#orientBtn').innerHTML = (tall ? 'Redraw as a wide page (landscape)' : 'Redraw as a tall page (portrait)')
+    + (plainOn(p) ? '' : ' <small>uses 1 AI design</small>');
+  if (plainOn(p)) $('#orientBtn').textContent = tall ? 'Make it a wide page (landscape)' : 'Make it a tall page (portrait)';
   const plain = plainOn(p);
   $('#plainControls').hidden = !plain;
   $('#addArtBtn').disabled = busy;
@@ -394,7 +402,7 @@ function syncArtSection() {
   p.artHistory.forEach((a, i) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'version';
+    b.className = 'version' + (a.orient === 'portrait' ? ' tall' : '');
     b.setAttribute('aria-current', String(p.art?.key === a.key));
     b.setAttribute('aria-label', `Design ${i + 1}`);
     b.innerHTML = `<img src="${a.url}" alt="" loading="lazy"><span>${i + 1}${a.output === 'pyrography' ? ' · wood' : ''}</span>`;
@@ -446,6 +454,20 @@ $('#redrawBtn').addEventListener('click', () => {
 });
 $('#variationBtn').addEventListener('click', () => generateArt({ layout: state.pendingLayout || undefined, seed: String(Date.now()) }));
 $('#switchOutputBtn').addEventListener('click', () => convertOutput(state.project.output === 'pyrography' ? 'certificate' : 'pyrography'));
+$('#orientBtn').addEventListener('click', () => {
+  const p = state.project;
+  const to = orientOf(p) === 'portrait' ? 'landscape' : 'portrait';
+  if (plainOn(p)) {
+    // no artwork: just turn the paper; the photo and lettering re-flow
+    p.orient = to;
+    if (p.photo && to === 'portrait' && p.photo.place !== 'top') p.photo.place = 'top';
+    afterArtChange();
+    toast(to === 'portrait' ? 'Tall page ✓' : 'Wide page ✓');
+    return;
+  }
+  // a new AI drawing in the new shape; wording, lettering and photo stay as they are
+  generateArt({ orient: to, layout: state.pendingLayout || undefined });
+});
 
 // ---- no artwork: just the photo and words on clean paper ----
 function afterArtChange() { syncLettering(); syncArtSection(); syncPhoto(); updateSummaries(); render(); markDirty(); }
@@ -491,7 +513,7 @@ async function convertOutput(to) {
   try {
     const canvas = await deriveArtCanvas(src, to);
     const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
-    const q = new URLSearchParams({ from: src.key, output: to, layout: src.layout || p.plan.layout || 'framed' });
+    const q = new URLSearchParams({ from: src.key, output: to, layout: src.layout || p.plan.layout || 'framed', ...(src.orient === 'portrait' ? { orient: 'portrait' } : {}) });
     let res;
     try {
       res = await fetch('/api/art/derived?' + q, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'image/jpeg' }, body: blob });
@@ -548,14 +570,16 @@ function progressHtml(step, photo = false) {
     .join('')}</ul><p>${step >= 2 ? 'Usually under a minute. Fill in the wording below while you wait.' : ''}</p>`;
 }
 
-async function generateArt({ tweak = '', layout, output, seed, withPhoto } = {}) {
+async function generateArt({ tweak = '', layout, output, seed, withPhoto, orient } = {}) {
   const p = state.project;
   if (state.busyArt) return;
   state.busyArt = true;
   const targetOutput = output || p.output;
+  const targetOrient = orient || orientOf(p);
   const targetLayout = layout || p.art?.layout || p.plan.layout;
   syncArtSection();
-  const label = output && output !== p.output ? (output === 'pyrography' ? 'Drawing the wood-burning version…' : 'Painting the color version…') : 'Painting your artwork…';
+  const label = orient && orient !== orientOf(p) ? (orient === 'portrait' ? 'Redrawing as a tall page…' : 'Redrawing as a wide page…')
+    : output && output !== p.output ? (output === 'pyrography' ? 'Drawing the wood-burning version…' : 'Painting the color version…') : 'Painting your artwork…';
   setArtStatus('busy', `<div class="spinner"></div><span>${label} You can keep editing.</span>`);
   if (!p.art) stageOverlay('busy', progressHtml(2));
   else stageOverlay('busy', `<div class="shimmer"></div><div class="spinner"></div><h3>${label}</h3><p>Your current design stays until the new one is ready.</p>`);
@@ -567,7 +591,7 @@ async function generateArt({ tweak = '', layout, output, seed, withPhoto } = {})
       ({ art } = await api('/api/art', {
         method: 'POST',
         body: {
-          idea: p.idea, artPrompt: p.plan.artPrompt, layout: targetLayout, output: targetOutput, tweak, seed,
+          idea: p.idea, artPrompt: p.plan.artPrompt, layout: targetLayout, output: targetOutput, orient: targetOrient, tweak, seed,
           // "Paint into art": every redraw keeps using the photo as the reference
           ...((withPhoto || p.photo?.mode === 'ai') && p.photo?.key ? { photoKey: p.photo.key, photoSubject: p.photo.subject || '' } : {}),
         },
@@ -581,6 +605,7 @@ async function generateArt({ tweak = '', layout, output, seed, withPhoto } = {})
     }
     await fitZone(art);
     p.art = art;
+    p.orient = art.orient === 'portrait' ? 'portrait' : 'landscape';
     p.plainBg = false;
     p.artHistory.push(art);
     if (p.artHistory.length > 24) p.artHistory.shift();
@@ -595,12 +620,12 @@ async function generateArt({ tweak = '', layout, output, seed, withPhoto } = {})
       + (shared ? ' It’s shared in the public gallery (artwork only) — turn that off under Artwork.' : ''), { ms: shared ? 5200 : 3200 });
     refreshUsage();
   } catch (e) {
-    if (e.status === 401) return needAuth(() => generateArt({ tweak, layout, output, seed }));
+    if (e.status === 401) return needAuth(() => generateArt({ tweak, layout, output, seed, orient }));
     const msg = e.message || 'The artwork could not be created.';
     if (!p.art) stageOverlay('err', `<h3>Artwork wasn’t created</h3><p>${msg}</p><button class="primary-btn small" id="retryArt">Try again</button>`);
     else stageOverlay(null);
     setArtStatus('err', `<span>${msg}</span><button class="ghost-btn small" id="retryArt2">Retry</button>`);
-    const retry = () => generateArt({ tweak, layout, output, seed });
+    const retry = () => generateArt({ tweak, layout, output, seed, orient });
     $('#retryArt')?.addEventListener('click', retry);
     $('#retryArt2')?.addEventListener('click', retry);
   } finally {
@@ -614,7 +639,7 @@ async function generateArt({ tweak = '', layout, output, seed, withPhoto } = {})
 // measure where the artwork left empty space, so lettering stays off the decoration
 async function fitZone(art) {
   if (!art || art.zone) return;
-  try { const z = await detectZone(art.url, art.layout); if (z) art.zone = z; } catch (e) { console.warn('zone detect failed', e); }
+  try { const z = await detectZone(art.url, art.layout, art.orient); if (z) art.zone = z; } catch (e) { console.warn('zone detect failed', e); }
 }
 
 async function recoverArt(since, tries = 1) {
@@ -664,6 +689,7 @@ function setOutputColors(p, output) {
 function useArtVersion(p, a) {
   setOutputColors(p, a.output === 'pyrography' ? 'pyrography' : 'certificate');
   p.art = a;
+  p.orient = a.orient === 'portrait' ? 'portrait' : 'landscape';
   p.plainBg = false;
 }
 
@@ -893,6 +919,7 @@ $('#startPhotoRemove').addEventListener('click', () => clearStartPhoto());
 function selectedOutput() {
   return $('input[name="output"]:checked').value;
 }
+const selectedOrient = () => ($('input[name="orient"]:checked')?.value === 'portrait' ? 'portrait' : 'landscape');
 
 $('#designBtn').addEventListener('click', startDesign);
 $('#idea').addEventListener('keydown', (e) => {
@@ -910,7 +937,7 @@ async function startDesign() {
   if (!state.user) return needAuth(startDesign);
   const gal = state.pendingGallery;
   const output = gal ? gal.art.output : selectedOutput();
-  const p = blankProject(idea || gal?.idea || '', output);
+  const p = blankProject(idea || gal?.idea || '', output, gal ? (gal.art.orient === 'portrait' ? 'portrait' : 'landscape') : selectedOrient());
   // still the library idea (perhaps with their own details added) → its artwork is shared by default
   const li = state.pendingIdea;
   if (li && idea.includes(li.p.slice(0, 40))) p.fromIdea = { id: li.id, t: li.t, p: li.p };
@@ -1124,7 +1151,7 @@ async function loadGallery(reset) {
 
 function galleryItem(it, admin) {
   const d = document.createElement('div');
-  d.className = 'gal-item';
+  d.className = 'gal-item' + (it.orient === 'portrait' ? ' tall' : '');
   d.dataset.id = it.id;
   d.innerHTML = `<button type="button" class="gal-open"><img loading="lazy" alt=""><span></span></button>${admin ? '<button type="button" class="gal-hide">Hide</button>' : ''}`;
   d.querySelector('img').src = it.url;
@@ -1166,6 +1193,7 @@ async function useGalleryArt(it) {
       $('#startGalThumb').src = res.art.url;
       $('#startGalNote').hidden = false;
       $$('input[name="output"]').forEach((r) => (r.checked = r.value === res.art.output));
+      $$('input[name="orient"]').forEach((r) => (r.checked = r.value === (res.art.orient === 'portrait' ? 'portrait' : 'landscape')));
       $('#noArtRow').hidden = true;
       closeSheet();
       ta.scrollIntoView({ block: 'center' });
@@ -1434,7 +1462,7 @@ function projectCard(pr, output, { example = false, admin = false } = {}) {
   const thumb = card.querySelector('.proj-thumb');
   const v = pr.versions?.[output];
   if (pr.preview?.style?.lettering) {
-    const prev = { ...pr.preview, output, art: v ? { url: v.url, layout: v.layout, zone: v.zone } : pr.preview.art, style: { ...pr.preview.style } };
+    const prev = { ...pr.preview, output, art: v ? { url: v.url, layout: v.layout, zone: v.zone, orient: v.orient } : pr.preview.art, style: { ...pr.preview.style } };
     if (output === 'pyrography') Object.assign(prev.style, { headColor: BURN, textColor: BURN });
     else if (prev.style.headColor === BURN) Object.assign(prev.style, { headColor: prev.style.certHead || COLORS[1][0], textColor: prev.style.certText || COLORS[0][0], outline: false });
     Promise.all([

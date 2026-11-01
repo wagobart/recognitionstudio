@@ -74,11 +74,11 @@ async function syncGallery(env, userId, p) {
   const t = now();
   // hidden stays as the owner set it; a different artwork is a new thing to review, so it shows again
   return env.DB.prepare(
-    `INSERT INTO gallery (id,project_id,user_id,art_key,output,layout,zone,title,idea,hidden,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,0,?,?)
-     ON CONFLICT(id) DO UPDATE SET art_key=excluded.art_key, output=excluded.output, layout=excluded.layout, zone=excluded.zone, title=excluded.title, idea=excluded.idea,
+    `INSERT INTO gallery (id,project_id,user_id,art_key,output,layout,zone,title,idea,orient,hidden,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,0,?,?)
+     ON CONFLICT(id) DO UPDATE SET art_key=excluded.art_key, output=excluded.output, layout=excluded.layout, zone=excluded.zone, title=excluded.title, idea=excluded.idea, orient=excluded.orient,
        hidden=CASE WHEN gallery.art_key=excluded.art_key THEN gallery.hidden ELSE 0 END,
        updated_at=CASE WHEN gallery.art_key=excluded.art_key THEN gallery.updated_at ELSE excluded.updated_at END`
-  ).bind(gid, p.id, userId, art.key, output, art.layout || 'framed', art.zone ? JSON.stringify(art.zone) : null, title, clean(p.fromIdea?.p, 1500) || null, t, t).run();
+  ).bind(gid, p.id, userId, art.key, output, art.layout || 'framed', art.zone ? JSON.stringify(art.zone) : null, title, clean(p.fromIdea?.p, 1500) || null, art.orient === 'portrait' ? 'portrait' : 'landscape', t, t).run();
 }
 
 // Every R2 image a project refers to (current art, versions, derived-from links, photo)
@@ -89,15 +89,15 @@ const assetKeys = (raw) => [...new Set(String(raw).match(ASSET_RE) || [])];
 function listItem(r) {
   let d = {};
   try { d = JSON.parse(r.data); } catch {}
-  const preview = { output: d.output, art: d.art ? { url: d.art.url, layout: d.art.layout, zone: d.art.zone } : null, plan: { layout: d?.plan?.layout }, text: d.text || {}, style: d.style || {}, photo: d.photo || null, plainBg: !!d.plainBg };
+  const preview = { output: d.output, orient: d.orient, art: d.art ? { url: d.art.url, layout: d.art.layout, zone: d.art.zone, orient: d.art.orient } : null, plan: { layout: d?.plan?.layout }, text: d.text || {}, style: d.style || {}, photo: d.photo || null, plainBg: !!d.plainBg };
   // latest artwork of each kind, so a design with both a certificate and a wood-burning
   // version is listed in both sections
   const versions = {};
   for (const a of [...(d.artHistory || []), d.art].filter(Boolean)) {
     const o = a.output === 'pyrography' ? 'pyrography' : 'certificate';
-    versions[o] = { url: a.url, layout: a.layout, zone: a.zone, key: a.key };
+    versions[o] = { url: a.url, layout: a.layout, zone: a.zone, key: a.key, orient: a.orient };
   }
-  if (d.art) versions[d.art.output === 'pyrography' ? 'pyrography' : 'certificate'] = { url: d.art.url, layout: d.art.layout, zone: d.art.zone, key: d.art.key };
+  if (d.art) versions[d.art.output === 'pyrography' ? 'pyrography' : 'certificate'] = { url: d.art.url, layout: d.art.layout, zone: d.art.zone, key: d.art.key, orient: d.art.orient };
   return { id: r.id, title: r.title, output: r.output, artUrl: r.art_key ? `/api/${r.art_key}` : null, name: d?.text?.name || '', updatedAt: r.updated_at, preview, versions };
 }
 
@@ -233,6 +233,9 @@ route('POST', '/api/art', async ({ env, request, user }) => {
   const body = await readJson(request);
   const output = body.output === 'pyrography' ? 'pyrography' : 'certificate';
   const layout = LAYOUTS[body.layout] ? body.layout : 'framed';
+  const orient = body.orient === 'portrait' ? 'portrait' : 'landscape';
+  const [aw, ah] = orient === 'portrait' ? [1024, 1536] : [1536, 1024];
+  const shape = orient === 'portrait' ? { orient } : {};
   let artPrompt = clean(body.artPrompt, 1500) || clean(body.idea, 1500);
   const tweak = clean(body.tweak, 400);
   if (!artPrompt) return err('Missing design description.');
@@ -246,17 +249,17 @@ route('POST', '/api/art', async ({ env, request, user }) => {
     if (!obj) return err('That photo could not be found. Please add it again.', 404);
     ref = { bytes: new Uint8Array(await obj.arrayBuffer()), contentType: obj.httpMetadata?.contentType || 'image/jpeg' };
   }
-  const prompt = buildImagePrompt({ artPrompt, layout, output, photo: ref ? { subject: clean(body.photoSubject, 60) } : null });
+  const prompt = buildImagePrompt({ artPrompt, layout, output, orient, photo: ref ? { subject: clean(body.photoSubject, 60) } : null });
   const id = uid('a_');
   const key = `art/${user.id}/${id}`;
   const L = limits(env);
 
   if (isMock(env)) {
     if (/SIMULATE_FAILURE/.test(tweak)) return err('The artwork could not be created this time. Your wording is safe — please try again.', 502, { code: 'ai_error' });
-    const svg = mockArtSvg({ idea: artPrompt + (body.seed || ''), layout, output, photo: !!ref });
+    const svg = mockArtSvg({ idea: artPrompt + (body.seed || ''), layout, output, photo: !!ref, orient });
     await env.ART.put(key, svg, { httpMetadata: { contentType: 'image/svg+xml' } });
-    await logGen(env, { id, userId: user.id, kind: 'art', model: 'test', status: 'ok', cost: 0, detail: JSON.stringify({ layout, output, contentType: 'image/svg+xml', test: true }) });
-    return json({ art: { key, url: `/api/${key}`, contentType: 'image/svg+xml', width: 1536, height: 1024, layout, output, test: true, prompt, ...(ref ? { fromPhoto: photoKey } : {}) } });
+    await logGen(env, { id, userId: user.id, kind: 'art', model: 'test', status: 'ok', cost: 0, detail: JSON.stringify({ layout, output, orient, contentType: 'image/svg+xml', test: true }) });
+    return json({ art: { key, url: `/api/${key}`, contentType: 'image/svg+xml', width: aw, height: ah, layout, output, ...shape, test: true, prompt, ...(ref ? { fromPhoto: photoKey } : {}) } });
   }
 
   const u = await usage(env, user.id);
@@ -268,11 +271,10 @@ route('POST', '/api/art', async ({ env, request, user }) => {
     return err('This month’s artwork budget has been reached. You can still edit wording and export existing designs.', 429, { code: 'budget' });
 
   try {
-    const img = await generateImage(env, prompt, ref);
+    const img = await generateImage(env, prompt, ref, orient);
     await env.ART.put(key, img.bytes, { httpMetadata: { contentType: img.contentType } });
-    await logGen(env, { id, userId: user.id, kind: 'art', model: img.model, status: 'ok', cost: L.artCost, detail: JSON.stringify({ layout, output, contentType: img.contentType, usage: img.usage }).slice(0, 600) });
-    const [w, h] = (env.IMAGE_SIZE || '1536x1024').split('x').map(Number);
-    return json({ art: { key, url: `/api/${key}`, contentType: img.contentType, width: w, height: h, layout, output, prompt, ...(ref ? { fromPhoto: photoKey } : {}) } });
+    await logGen(env, { id, userId: user.id, kind: 'art', model: img.model, status: 'ok', cost: L.artCost, detail: JSON.stringify({ layout, output, orient, contentType: img.contentType, usage: img.usage }).slice(0, 600) });
+    return json({ art: { key, url: `/api/${key}`, contentType: img.contentType, width: aw, height: ah, layout, output, ...shape, prompt, ...(ref ? { fromPhoto: photoKey } : {}) } });
   } catch (e) {
     const fe = e instanceof FriendlyError ? e : new FriendlyError('The artwork could not be created this time. Your wording is safe — please try again.');
     await logGen(env, { userId: user.id, kind: 'art', model: env.IMAGE_MODEL, status: 'error', detail: String(e.message).slice(0, 300) });
@@ -289,7 +291,8 @@ route('GET', '/api/art-latest', async ({ env, user, url }) => {
   let d = {};
   try { d = JSON.parse(r.detail || '{}'); } catch {}
   const key = `art/${user.id}/${r.id}`;
-  return json({ art: { key, url: `/api/${key}`, contentType: d.contentType || 'image/png', width: 1536, height: 1024, layout: d.layout || 'framed', output: d.output || 'certificate', test: !!d.test, recovered: true } });
+  const tall = d.orient === 'portrait';
+  return json({ art: { key, url: `/api/${key}`, contentType: d.contentType || 'image/png', width: tall ? 1024 : 1536, height: tall ? 1536 : 1024, layout: d.layout || 'framed', output: d.output || 'certificate', ...(tall ? { orient: 'portrait' } : {}), test: !!d.test, recovered: true } });
 });
 
 // The other version of an existing artwork, made in the browser from the identical image (no AI,
@@ -299,6 +302,7 @@ route('POST', '/api/art/derived', async ({ env, request, user, url }) => {
   if (!from.startsWith(`art/${user.id}/`)) return err('Artwork not found.', 404);
   const output = url.searchParams.get('output') === 'pyrography' ? 'pyrography' : 'certificate';
   const layout = LAYOUTS[url.searchParams.get('layout')] ? url.searchParams.get('layout') : 'framed';
+  const tall = url.searchParams.get('orient') === 'portrait';
   const type = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
   if (type !== 'image/jpeg' && type !== 'image/png') return err('Unsupported image.', 415);
   const bytes = new Uint8Array(await request.arrayBuffer());
@@ -306,7 +310,7 @@ route('POST', '/api/art/derived', async ({ env, request, user, url }) => {
   const id = uid('a_');
   const key = `art/${user.id}/${id}`;
   await env.ART.put(key, bytes, { httpMetadata: { contentType: type } });
-  return json({ art: { key, url: `/api/${key}`, contentType: type, width: 1536, height: 1024, layout, output, derivedFrom: from } });
+  return json({ art: { key, url: `/api/${key}`, contentType: type, width: tall ? 1024 : 1536, height: tall ? 1536 : 1024, layout, output, ...(tall ? { orient: 'portrait' } : {}), derivedFrom: from } });
 });
 
 // ---------- photos the user adds to a design (private, owner only) ----------
@@ -463,8 +467,8 @@ async function importSeeds(env, request) {
     const key = `art/${owner.id}/a_${x.id.slice(2)}`;
     await env.ART.put(key, await res.arrayBuffer(), { httpMetadata: { contentType } });
     const t = now();
-    await env.DB.prepare('INSERT OR IGNORE INTO gallery (id,project_id,user_id,art_key,output,layout,zone,title,idea,hidden,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,0,?,?)')
-      .bind(x.id, 'seed', owner.id, key, x.output, x.layout, JSON.stringify(x.zone), x.title, x.idea, t, t).run();
+    await env.DB.prepare('INSERT OR IGNORE INTO gallery (id,project_id,user_id,art_key,output,layout,zone,title,idea,orient,hidden,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,0,?,?)')
+      .bind(x.id, 'seed', owner.id, key, x.output, x.layout, JSON.stringify(x.zone), x.title, x.idea, x.orient === 'portrait' ? 'portrait' : 'landscape', t, t).run();
   }
   seedsDone = true;
 }
@@ -473,9 +477,9 @@ route('GET', '/api/gallery', async ({ env, user, url, request }) => {
   const output = url.searchParams.get('output');
   const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
   const where = output === 'pyrography' || output === 'certificate' ? 'hidden=0 AND output=?' : 'hidden=0';
-  const q = env.DB.prepare(`SELECT id,art_key,output,layout,zone,title FROM gallery WHERE ${where} ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
+  const q = env.DB.prepare(`SELECT id,art_key,output,layout,zone,title,orient FROM gallery WHERE ${where} ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
   const { results } = await (where.includes('?') ? q.bind(output, GALLERY_PAGE + 1, offset) : q.bind(GALLERY_PAGE + 1, offset)).all();
-  const items = results.slice(0, GALLERY_PAGE).map((r) => ({ id: r.id, url: `/api/${r.art_key}`, output: r.output, layout: r.layout, title: r.title }));
+  const items = results.slice(0, GALLERY_PAGE).map((r) => ({ id: r.id, url: `/api/${r.art_key}`, output: r.output, layout: r.layout, title: r.title, orient: r.orient === 'portrait' ? 'portrait' : 'landscape' }));
   return json({ items, more: results.length > GALLERY_PAGE, admin: isAdmin(env, user) });
 }, { public: true });
 
@@ -491,7 +495,7 @@ route('POST', '/api/gallery/(g_[a-z0-9]+)/use', async ({ env, user, m }) => {
   let zone = null;
   try { zone = g.zone ? JSON.parse(g.zone) : null; } catch {}
   return json({
-    art: { key, url: `/api/${key}`, contentType, width: 1536, height: 1024, layout: g.layout || 'framed', output: g.output, fromGallery: g.id, ...(zone ? { zone } : {}) },
+    art: { key, url: `/api/${key}`, contentType, ...(g.orient === 'portrait' ? { width: 1024, height: 1536, orient: 'portrait' } : { width: 1536, height: 1024 }), layout: g.layout || 'framed', output: g.output, fromGallery: g.id, ...(zone ? { zone } : {}) },
     title: g.title, idea: g.idea || '',
   });
 });

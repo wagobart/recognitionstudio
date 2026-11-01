@@ -10,12 +10,12 @@ export class FriendlyError extends Error {
 
 // ref: optional { bytes, contentType } reference photo. With a reference the call goes to the
 // image-edit endpoint so the model can draw that exact subject into the artwork.
-export async function generateImage(env, prompt, ref = null) {
+export async function generateImage(env, prompt, ref = null, orient = 'landscape') {
   const model = env.IMAGE_MODEL || 'gpt-image-1';
   const body = {
     model,
     prompt,
-    size: env.IMAGE_SIZE || '1536x1024',
+    size: orient === 'portrait' ? '1024x1536' : env.IMAGE_SIZE || '1536x1024',
     quality: env.IMAGE_QUALITY || 'high',
     n: 1,
   };

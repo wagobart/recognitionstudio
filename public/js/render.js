@@ -1,5 +1,5 @@
 // Three renderers fed by the same layout: live SVG preview, PNG (canvas) and PDF (pdf-lib).
-import { computeLayout, DESIGN_W, DESIGN_H, plainOn, plainPaper } from './layout.js';
+import { computeLayout, dims, plainOn, plainPaper } from './layout.js';
 import { cssFamily, fontBuffer, loadStyle } from './fonts.js';
 import { photoPngBytes } from './photo.js';
 
@@ -16,6 +16,7 @@ function ornament(r, outline) {
 
 export function svgMarkup(project, { interactive = true, artHref } = {}) {
   const { items, rules, zone, photo } = computeLayout(project);
+  const { W: DESIGN_W, H: DESIGN_H } = dims(project);
   const outline = project.output === 'pyrography' && project.style?.outline;
   const href = artHref ?? project.art?.url;
   // photo layer: the finished image is prepared asynchronously (project._photoHref); until then a soft placeholder
@@ -75,6 +76,7 @@ async function artRaster(project, targetW = 3000) {
     const img = await loadImage(blobUrl);
     const c = document.createElement('canvas');
     c.width = targetW;
+    const { W: DESIGN_W, H: DESIGN_H } = dims(project);
     c.height = Math.round(targetW * (DESIGN_H / DESIGN_W));
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
     const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
@@ -88,9 +90,10 @@ async function artRaster(project, targetW = 3000) {
 export async function renderPng(project, width = 3000) {
   await loadStyle(project.style.lettering);
   const { items, rules, photo } = computeLayout(project);
-  const k = width / DESIGN_W;
+  const { W: DESIGN_W, H: DESIGN_H } = dims(project);
+  const k = width / Math.max(DESIGN_W, DESIGN_H); // width = the long side, either orientation
   const c = document.createElement('canvas');
-  c.width = width;
+  c.width = Math.round(DESIGN_W * k);
   c.height = Math.round(DESIGN_H * k);
   const g = c.getContext('2d');
   g.fillStyle = '#fff';
@@ -200,7 +203,10 @@ export async function renderPdf(project, { paper = 'letter', mirror = false } = 
   // photo layer at print resolution (≈300 dpi for its printed size)
   const pimg = photo ? await doc.embedPng(await photoPngBytes(project.photo, 1800)) : null;
 
-  const [PW, PH] = PAGES[paper] || PAGES.letter;
+  const { W: DESIGN_W, H: DESIGN_H } = dims(project);
+  // the paper turns to match the design (landscape pages are listed wide-first)
+  let [PW, PH] = PAGES[paper] || PAGES.letter;
+  if (DESIGN_H > DESIGN_W) [PW, PH] = [PH, PW];
   const margin = 18;
   const k = Math.min((PW - margin * 2) / DESIGN_W, (PH - margin * 2) / DESIGN_H);
   const AW = DESIGN_W * k, AH = DESIGN_H * k;

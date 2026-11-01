@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS gallery (
   zone TEXT,                     -- JSON of the measured lettering area
   title TEXT,                    -- library idea title, or a generic label — never user text
   idea TEXT,                     -- library idea text (only when it came from the library)
+  orient TEXT NOT NULL DEFAULT 'landscape',  -- 'landscape' | 'portrait' (added 2026-11-01: ALTER TABLE gallery ADD COLUMN orient ...)
   hidden INTEGER NOT NULL DEFAULT 0,  -- hidden by the site owner
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL

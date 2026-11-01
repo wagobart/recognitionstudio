@@ -1,10 +1,11 @@
 // Finds the calm (empty) lettering area in a generated artwork so text never lands on the
 // decoration. AI images rarely leave exactly the space requested, so we measure it.
-import { ZONES, DESIGN_W, DESIGN_H } from './layout.js';
+import { zonesFor, DESIGN_W, DESIGN_H } from './layout.js';
 
-const GW = 150, GH = 100; // analysis grid (each cell = 10 design units)
-
-export async function detectZone(url, layout) {
+export async function detectZone(url, layout, orient = 'landscape') {
+  const portrait = orient === 'portrait';
+  const DW = portrait ? DESIGN_H : DESIGN_W, DH = portrait ? DESIGN_W : DESIGN_H;
+  const GW = DW / 10, GH = DH / 10; // analysis grid (each cell = 10 design units)
   const img = new Image();
   img.src = url;
   await img.decode();
@@ -28,7 +29,8 @@ export async function detectZone(url, layout) {
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { n++; b += busy[y * GW + x]; }
     return n ? b / n : 1;
   };
-  const z = ZONES[layout] || ZONES.framed;
+  const Z = zonesFor(orient);
+  const z = Z[layout] || Z.framed;
   // start a little larger than the nominal area, then pull each edge in until its strip is calm
   let x0 = Math.max(2, Math.floor(z.x / 10) - 6), y0 = Math.max(2, Math.floor(z.y / 10) - 5);
   let x1 = Math.min(GW - 2, Math.ceil((z.x + z.w) / 10) + 6), y1 = Math.min(GH - 2, Math.ceil((z.y + z.h) / 10) + 5);
@@ -51,6 +53,6 @@ export async function detectZone(url, layout) {
   // sanity: if detection collapsed (very busy art), fall back to nominal
   if (zone.w < z.w * 0.45 || zone.h < z.h * 0.45) return null;
   zone.x = Math.max(40, zone.x); zone.y = Math.max(30, zone.y);
-  zone.w = Math.min(zone.w, DESIGN_W - 40 - zone.x); zone.h = Math.min(zone.h, DESIGN_H - 30 - zone.y);
+  zone.w = Math.min(zone.w, DW - 40 - zone.x); zone.h = Math.min(zone.h, DH - 30 - zone.y);
   return { x: Math.round(zone.x), y: Math.round(zone.y), w: Math.round(zone.w), h: Math.round(zone.h), auto: true };
 }

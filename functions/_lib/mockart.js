@@ -19,9 +19,10 @@ const PALETTES = [
   { bg: '#f5f0f3', a: '#5a2a3a', b: '#b08d57', c: '#2e3a59' },
 ];
 
-export function mockArtSvg({ idea = '', layout = 'framed', output = 'certificate', photo = false }) {
-  const r = rng(idea + layout + output);
-  const W = 1536, H = 1024;
+export function mockArtSvg({ idea = '', layout = 'framed', output = 'certificate', photo = false, orient = 'landscape' }) {
+  const r = rng(idea + layout + output + orient);
+  const portrait = orient === 'portrait';
+  const W = portrait ? 1024 : 1536, H = portrait ? 1536 : 1024;
   const pyro = output === 'pyrography';
   const P = pyro ? { bg: '#ffffff', a: '#111', b: '#111', c: '#111' } : PALETTES[Math.floor(r() * PALETTES.length)];
   const sw = pyro ? 3 : 2.5;
@@ -75,23 +76,25 @@ export function mockArtSvg({ idea = '', layout = 'framed', output = 'certificate
   };
 
   if (layout === 'framed') {
-    parts.push(vine(150, 90, W - 150, 90, 14), vine(150, H - 90, W - 150, H - 90, 14));
-    parts.push(vine(90, 150, 90, H - 150, 9), vine(W - 90, 150, W - 90, H - 150, 9));
+    parts.push(vine(150, 90, W - 150, 90, Math.round(W / 110)), vine(150, H - 90, W - 150, H - 90, Math.round(W / 110)));
+    parts.push(vine(90, 150, 90, H - 150, Math.round(H / 110)), vine(W - 90, 150, W - 90, H - 150, Math.round(H / 110)));
     parts.push(corners());
   } else if (layout === 'crest') {
     parts.push(corners());
-    parts.push(rosette(W / 2, 150, 88));
-    parts.push(vine(W / 2 - 110, 150, W / 2 - 420, 150, 6), vine(W / 2 + 110, 150, W / 2 + 420, 150, 6));
+    parts.push(rosette(W / 2, portrait ? 240 : 150, portrait ? 130 : 88));
+    parts.push(vine(W / 2 - 150, portrait ? 240 : 150, W / 2 - W * 0.36, portrait ? 240 : 150, 4), vine(W / 2 + 150, portrait ? 240 : 150, W / 2 + W * 0.36, portrait ? 240 : 150, 4));
   } else if (layout === 'art-left') {
-    parts.push(illustration(80, 80, 440, H - 160));
-    parts.push(vine(560, H - 90, W - 150, H - 90, 10));
+    const iw = portrait ? W * 0.26 : 440;
+    parts.push(illustration(80, 80, iw, H - 160));
+    parts.push(vine(iw + 120, H - 90, W - 150, H - 90, 6));
   } else if (layout === 'art-right') {
-    parts.push(illustration(W - 520, 80, 440, H - 160));
-    parts.push(vine(150, H - 90, W - 560, H - 90, 10));
+    const iw = portrait ? W * 0.26 : 440;
+    parts.push(illustration(W - 80 - iw, 80, iw, H - 160));
+    parts.push(vine(150, H - 90, W - iw - 120, H - 90, 6));
   } else {
     // scene
     for (let i = 0; i < 4; i++) {
-      const base = H - 80 - i * 55;
+      const base = H - 80 - i * (portrait ? 110 : 55);
       const pts = Array.from({ length: 9 }, (_, k) => `${(k / 8) * (W - 120) + 60},${base - 40 - r() * 90}`).join(' L ');
       parts.push(`<path d="M60 ${H - 60} L ${pts} L ${W - 60} ${H - 60} Z" fill="${fillOr([P.c, P.b, P.a, P.c][i], 0.25 + i * 0.12)}" stroke="${P.a}" stroke-width="${sw}"/>`);
     }

@@ -28,7 +28,7 @@
   gtag('config', id, { page_location: u.href });
 })();
 </script>
-<link rel="stylesheet" href="/css/app.css?v=10">
+<link rel="stylesheet" href="/css/app.css?v=11">
 </head>
 <body>
 <header class="top">
@@ -79,6 +79,11 @@
           <span class="pick-card"><span class="pick-ico pick-cert" aria-hidden="true"></span><b>Printable certificate</b><small>Full color, ready to print &amp; frame</small></span></label>
         <label class="pick"><input type="radio" name="output" value="pyrography">
           <span class="pick-card"><span class="pick-ico pick-wood" aria-hidden="true"></span><b>Wood-burning pattern</b><small>Lifelike graphite drawing to burn</small></span></label>
+      </fieldset>
+      <fieldset class="orient-pick">
+        <legend>Page</legend>
+        <label class="seg-opt"><input type="radio" name="orient" value="landscape" checked><span><i class="o-ico o-wide" aria-hidden="true"></i>Landscape</span></label>
+        <label class="seg-opt"><input type="radio" name="orient" value="portrait"><span><i class="o-ico o-tall" aria-hidden="true"></i>Portrait</span></label>
       </fieldset>
       <button class="primary-btn wide big" id="designBtn" type="button">Design it <span aria-hidden="true">✦</span></button>
       <p class="fine">Takes about a minute. Every word stays editable afterward — no redrawing needed.</p>
@@ -200,6 +205,7 @@
           </div>
           <div class="layout-row"><span class="row-label">Composition</span><div class="chips" id="layoutChips"></div></div>
           <button class="ghost-btn wide" id="switchOutputBtn" type="button"></button>
+          <button class="text-btn orient-btn" id="orientBtn" type="button"></button>
           <label class="toggle share-row" id="shareRow" hidden><input type="checkbox" id="shareToggle"><span>Share in the public gallery <small>Only the artwork — never your wording, names or photo.</small></span></label>
           <button class="text-btn" id="galleryPickBtn" type="button">Use artwork from the gallery — free</button>
           <button class="text-btn" id="noArtBtn" type="button">Use no artwork (just photo and words)</button>
@@ -316,6 +322,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script type="module" src="/js/app.js?v=10"></script>
+<script type="module" src="/js/app.js?v=11"></script>
 </body>
 </html>

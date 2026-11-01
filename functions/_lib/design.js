@@ -7,22 +7,27 @@ export const LAYOUTS = {
   framed: {
     label: 'Framed',
     art: 'a rich decorative border running around all four edges of the page, built from the themed objects and motifs themselves (woven INTO the border and corners) rather than generic leafy or floral ornament. The entire central area (about 64% of the width and 66% of the height, centered) is a plain, smooth, completely empty background with nothing in it',
+    portrait: 'a decorative border running around all four edges of the tall page, built from the themed objects and motifs themselves (woven INTO the border and corners) rather than generic leafy or floral ornament. The entire central area (about 64% of the width and 70% of the height, centered) is a plain, smooth, completely empty background with nothing in it',
   },
   crest: {
     label: 'Crest on top',
     art: 'a thin elegant border around the edges, plus one featured emblem/illustration centered along the top edge occupying roughly the top quarter of the page. Everything below the emblem (the lower 70% of the page, inside the border) is a plain, smooth, completely empty background',
+    portrait: 'a thin elegant border around the edges, plus one featured emblem/illustration centered at the top of the tall page occupying roughly the top third. Everything below the emblem (the lower 63% of the page, inside the border) is a plain, smooth, completely empty background',
   },
   'art-left': {
     label: 'Art on the left',
     art: 'a tall featured illustration filling the left third of the page, plus a thin border around the edges. The right two-thirds of the page (inside the border) is a plain, smooth, completely empty background',
+    portrait: 'a tall, narrow featured illustration running the full height of the left 28% of the tall page, plus a thin border around the edges. The right 70% of the page (inside the border) is a plain, smooth, completely empty background',
   },
   'art-right': {
     label: 'Art on the right',
     art: 'a tall featured illustration filling the right third of the page, plus a thin border around the edges. The left two-thirds of the page (inside the border) is a plain, smooth, completely empty background',
+    portrait: 'a tall, narrow featured illustration running the full height of the right 28% of the tall page, plus a thin border around the edges. The left 70% of the page (inside the border) is a plain, smooth, completely empty background',
   },
   scene: {
     label: 'Scene along the bottom',
     art: 'a panoramic themed scene along the bottom third of the page that fades softly upward, plus a thin border around the edges. The upper 62% of the page (inside the border) is a plain, smooth, completely empty background like open sky or blank paper',
+    portrait: 'a themed scene filling the bottom 40% of the tall page that fades softly upward, plus a thin border around the edges. The upper 58% of the page (inside the border) is a plain, smooth, completely empty background like open sky or blank paper',
   },
 };
 
@@ -44,25 +49,28 @@ export function photoInstruction(layout, subject) {
   return `Feature ${what} ${where}, faithfully matching its real appearance, likeness, markings, colors and proportions. Only the subject comes from the photo: do not copy its background, and do not let the subject enter the empty lettering area.`;
 }
 
-export function buildImagePrompt({ artPrompt, layout, output, photo }) {
+export function buildImagePrompt({ artPrompt, layout, output, photo, orient }) {
   const L = LAYOUTS[layout] || LAYOUTS.framed;
+  const portrait = orient === 'portrait';
+  const page = portrait ? 'vertical 2:3 portrait page (taller than wide)' : 'horizontal 3:2 landscape page';
+  const comp = portrait ? L.portrait : L.art;
   if (photo) artPrompt = `${artPrompt}. ${photoInstruction(layout, photo.subject)}`;
   if (output === 'pyrography') {
     return [
-      'Photorealistic graphite pencil drawing to be used as a pyrography (wood burning) reference, horizontal 3:2 landscape page, clean white paper background.',
+      `Photorealistic graphite pencil drawing to be used as a pyrography (wood burning) reference, ${page}, clean white paper background.`,
       `Subject and motifs: ${artPrompt}.`,
       'Keep it uncluttered: one clear focal subject with only a few supporting details, never a collage of symbols.',
-      `Composition: ${L.art}.`,
+      `Composition: ${comp}.`,
       'Style: highly detailed, lifelike graphite rendering with smooth tonal shading from soft light grays to deep charcoal blacks, realistic textures (fur, wood grain, metal, fabric), strong form and lighting, and crisp edges on the main subjects. Grayscale only: no color, no colored tints, no paint or ink washes. Keep the empty lettering area pure white paper with no smudges, shading or texture.',
       NO_TEXT,
       'Front-on flat drawing filling the frame edge to edge, not a photo of paper, a sketchbook or a board.',
     ].join(' ');
   }
   return [
-    'Printable award certificate background artwork, horizontal 3:2 landscape page, premium and professional.',
+    `Printable award certificate background artwork, ${page}, premium and professional.`,
     `Theme and motifs: ${artPrompt}.`,
     'Keep it uncluttered: one clear focal subject with only a few supporting details, never a collage of symbols.',
-    `Composition: ${L.art}.`,
+    `Composition: ${comp}.`,
     'Rich, crisp, print-quality illustration with tasteful, harmonious colors; the empty area must be light and even in tone so dark lettering is easy to read on it.',
     NO_TEXT,
     'Front-on flat artwork filling the frame edge to edge, not a photo or mockup of paper.',

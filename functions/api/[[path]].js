@@ -1,11 +1,12 @@
 // Crafted In Honor API (Cloudflare Pages Functions)
 // Bindings: DB (D1), ART (R2). Secret: OPENAI_API_KEY. See README for vars.
-import { json, err, uid, now, readJson, clean } from '../_lib/util.js';
+import { json, err, uid, now, readJson, clean, sha256Hex, bytesToHex } from '../_lib/util.js';
 import { hashPassword, verifyPassword, createSession, clearCookie, getUser, endSession, newUserId, signupAllowed } from '../_lib/auth.js';
 import { LAYOUTS, LETTERING, buildImagePrompt, planWithAI, localPlan } from '../_lib/design.js';
 import { generateImage, FriendlyError } from '../_lib/openai.js';
 import { mockArtSvg } from '../_lib/mockart.js';
 import { GALLERY_SEEDS } from '../_lib/seeds.js';
+import { sendMail, resetEmail } from '../_lib/mail.js';
 
 const isMock = (env) => (env.AI_MODE || '').toLowerCase() === 'mock' || !env.OPENAI_API_KEY;
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v != null ? Number(v) : d);
@@ -141,6 +142,57 @@ route('POST', '/api/auth/login', async ({ env, request }) => {
     return err('That email and password don’t match.', 401);
   const cookie = await createSession(env, row.id, request);
   return json({ user: { id: row.id, email: row.email } }, 200, { 'set-cookie': cookie });
+}, { public: true });
+
+// ---------- forgotten password: emailed one-time link ----------
+const RESET_MINUTES = 60;
+route('POST', '/api/auth/forgot', async ({ env, request }) => {
+  const { email: e } = await readJson(request);
+  const email = clean(e, 200).toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err('Please enter the email address you signed up with.');
+  // same answer whether or not the account exists, so this can't be used to find out who has one
+  const ok = { ok: true };
+  const user = await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first();
+  if (!user) return json(ok);
+  const recent = await env.DB.prepare('SELECT COUNT(*) n FROM password_resets WHERE user_id=? AND created_at>?').bind(user.id, now() - 36e5).first();
+  if (recent.n >= 3) return json(ok); // a few per hour is plenty; quietly ignore the rest
+  const raw = new Uint8Array(32);
+  crypto.getRandomValues(raw);
+  const token = bytesToHex(raw);
+  await env.DB.prepare('INSERT INTO password_resets (token_hash,user_id,expires_at,created_at) VALUES (?,?,?,?)')
+    .bind(await sha256Hex(token), user.id, now() + RESET_MINUTES * 6e4, now()).run();
+  const link = `${env.APP_URL || new URL(request.url).origin}/?reset=${token}`;
+  if (!env.RESEND_API_KEY) {
+    // local test server only: hand the link back so tests can follow it
+    if (isMock(env) && /^(127\.0\.0\.1|localhost)$/.test(new URL(request.url).hostname)) return json({ ...ok, devLink: link });
+    console.log('password reset requested but RESEND_API_KEY is not set');
+    return err('Password reset emails aren’t set up yet. Please try again later.', 503);
+  }
+  try {
+    await sendMail(env, { to: email, ...resetEmail(link) });
+  } catch (x) {
+    console.log('reset email failed', x.message);
+    return err('We couldn’t send the email just now. Please try again in a few minutes.', 502);
+  }
+  return json(ok);
+}, { public: true });
+
+route('POST', '/api/auth/reset', async ({ env, request }) => {
+  const { token, password } = await readJson(request);
+  if (!/^[a-f0-9]{64}$/.test(String(token || ''))) return err('That reset link isn’t valid. Please ask for a new one.', 400);
+  if (String(password || '').length < 8) return err('Please choose a password of at least 8 characters.');
+  const th = await sha256Hex(token);
+  const row = await env.DB.prepare('SELECT r.user_id, r.expires_at, r.used_at, u.email FROM password_resets r JOIN users u ON u.id=r.user_id WHERE r.token_hash=?').bind(th).first();
+  if (!row || row.used_at || row.expires_at < now()) return err('That reset link has expired or was already used. Please ask for a new one.', 400);
+  const { salt, hash } = await hashPassword(password);
+  await env.DB.batch([
+    env.DB.prepare('UPDATE users SET pass_hash=?, salt=? WHERE id=?').bind(hash, salt, row.user_id),
+    env.DB.prepare('UPDATE password_resets SET used_at=? WHERE token_hash=?').bind(now(), th),
+    // sign out everywhere else (whoever had the old password)
+    env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(row.user_id),
+  ]);
+  const cookie = await createSession(env, row.user_id, request);
+  return json({ user: { id: row.user_id, email: row.email } }, 200, { 'set-cookie': cookie });
 }, { public: true });
 
 route('POST', '/api/auth/logout', async ({ env, request }) => {

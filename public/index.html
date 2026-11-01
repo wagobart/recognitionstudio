@@ -11,7 +11,7 @@
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="stylesheet" href="/css/app.css?v=7">
+<link rel="stylesheet" href="/css/app.css?v=9">
 </head>
 <body>
 <header class="top">
@@ -268,10 +268,13 @@
       <button type="button" role="tab" data-mode="login" aria-selected="true">Sign in</button>
       <button type="button" role="tab" data-mode="signup" aria-selected="false">Create account</button>
     </div>
-    <label class="fld"><span>Email</span><input type="email" id="authEmail" autocomplete="email" required inputmode="email"></label>
-    <label class="fld"><span>Password</span><input type="password" id="authPass" autocomplete="current-password" required minlength="8"></label>
+    <label class="fld" id="authEmailRow"><span>Email</span><input type="email" id="authEmail" autocomplete="email" required inputmode="email"></label>
+    <label class="fld" id="authPassRow"><span id="authPassLabel">Password</span><input type="password" id="authPass" autocomplete="current-password" required minlength="8"></label>
     <p class="form-error" id="authError" role="alert" hidden></p>
+    <p class="form-ok" id="authOk" role="status" hidden></p>
     <button class="primary-btn wide big" id="authSubmit" type="submit">Sign in</button>
+    <button class="text-btn auth-link" id="authForgotBtn" type="button">Forgot your password?</button>
+    <button class="text-btn auth-link" id="authBackBtn" type="button" hidden>Back to sign in</button>
     <p class="fine" id="authFine"></p>
   </form>
 </section>
@@ -296,6 +299,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script type="module" src="/js/app.js?v=7"></script>
+<script type="module" src="/js/app.js?v=9"></script>
 </body>
 </html>

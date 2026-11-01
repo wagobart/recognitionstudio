@@ -83,3 +83,13 @@ CREATE TABLE IF NOT EXISTS gallery (
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_list ON gallery(hidden, output, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_gallery_art ON gallery(art_key);
+
+-- Password reset links (emailed via Resend). Only a hash of the token is stored; 1 hour, single use.
+CREATE TABLE IF NOT EXISTS password_resets (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id, created_at);

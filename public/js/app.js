@@ -1559,21 +1559,52 @@ async function duplicateProject(id) {
 
 // ---------------- auth ----------------
 let authMode = 'login';
+// modes: login · signup · forgot (email me a link) · reset (opened from the emailed link)
 function setAuthMode(m) {
   authMode = m;
+  const pair = m === 'login' || m === 'signup';
   $$('#authSeg button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === m)));
-  $('#authSubmit').textContent = m === 'login' ? 'Sign in' : 'Create account';
+  $('#authSeg').hidden = !pair;
+  $('#authEmailRow').hidden = m === 'reset';
+  $('#authPassRow').hidden = m === 'forgot';
+  $('#authPassLabel').textContent = m === 'reset' ? 'New password' : 'Password';
+  $('#authSubmit').textContent = { login: 'Sign in', signup: 'Create account', forgot: 'Email me a reset link', reset: 'Set new password' }[m];
   $('#authPass').autocomplete = m === 'login' ? 'current-password' : 'new-password';
   $('#authPass').placeholder = m === 'login' ? '' : 'At least 8 characters';
+  $('#authForgotBtn').hidden = m !== 'login';
+  $('#authBackBtn').hidden = pair;
   $('#authError').hidden = true;
+  $('#authOk').hidden = true;
+  $('#authSubmit').hidden = false;
+  if (pair) $('#authTitle').textContent = state.afterAuth ? 'Sign in to design' : 'Sign in';
+  else $('#authTitle').textContent = m === 'forgot' ? 'Reset your password' : 'Choose a new password';
+  $('#authLede').textContent = {
+    forgot: 'Enter the email you signed up with and we’ll send you a link to choose a new password.',
+    reset: 'Choose a new password for your account. You’ll be signed in right after.',
+  }[m] || 'Your designs are saved to your account, so you can return to them on any device.';
   const invite = state.config?.signup !== 'open';
-  $('#authFine').textContent = m === 'signup' && invite ? 'Accounts are invite-only during testing. Use the email the site owner added.' : 'Forgot your password? Contact the site owner to reset it.';
+  $('#authFine').textContent = m === 'signup' && invite ? 'Accounts are invite-only during testing. Use the email the site owner added.' : '';
+}
+$('#authForgotBtn').addEventListener('click', () => {
+  setAuthMode('forgot');
+  $('#authEmail').focus();
+});
+$('#authBackBtn').addEventListener('click', () => { setAuthMode('login'); $('#authEmail').focus(); });
+
+// opened from the reset email: /?reset=<token>
+const resetToken = new URLSearchParams(location.search).get('reset');
+if (resetToken) {
+  history.replaceState(null, '', location.pathname); // keep the token out of history and shares
+  state.resetToken = resetToken;
+  setAuthMode('reset');
+  openSheet('authSheet');
+  setTimeout(() => $('#authPass').focus(), 60);
 }
 $$('#authSeg button').forEach((b) => b.addEventListener('click', () => setAuthMode(b.dataset.mode)));
 
 function needAuth(then) {
   state.afterAuth = then || null;
-  setAuthMode(authMode);
+  setAuthMode(authMode === 'signup' ? 'signup' : 'login'); // a forgot/reset step left open earlier starts over
   $('#authTitle').textContent = then ? 'Sign in to design' : 'Sign in';
   openSheet('authSheet');
   // only if they haven't started typing — otherwise a fast typist's (or password manager's)
@@ -1588,13 +1619,30 @@ $('#authForm').addEventListener('submit', async (e) => {
   const btn = $('#authSubmit');
   btn.disabled = true;
   $('#authError').hidden = true;
+  if (authMode === 'forgot') {
+    try {
+      const r = await api('/api/auth/forgot', { method: 'POST', body: { email } });
+      if (r.devLink) console.log('reset link (test server):', r.devLink), (window.__rs.lastResetLink = r.devLink);
+      $('#authOk').textContent = `If there’s an account for ${email}, a reset link is on its way. It works for 1 hour — check your spam folder if it hasn’t arrived in a few minutes.`;
+      $('#authOk').hidden = false;
+      $('#authSubmit').hidden = true;
+    } catch (err) {
+      $('#authError').textContent = err.message;
+      $('#authError').hidden = false;
+    } finally { btn.disabled = false; }
+    return;
+  }
   try {
-    const { user } = await api(`/api/auth/${authMode === 'login' ? 'login' : 'signup'}`, { method: 'POST', body: { email, password } });
+    const { user } = authMode === 'reset'
+      ? await api('/api/auth/reset', { method: 'POST', body: { token: state.resetToken, password } })
+      : await api(`/api/auth/${authMode === 'login' ? 'login' : 'signup'}`, { method: 'POST', body: { email, password } });
+    if (authMode === 'reset') { state.resetToken = null; toast('Password updated — you’re signed in.'); }
     state.user = user;
     await loadConfig();
     closeSheet();
     $('#authPass').value = '';
-    toast(authMode === 'login' ? 'Signed in.' : 'Account created — welcome!');
+    if (authMode !== 'reset') toast(authMode === 'login' ? 'Signed in.' : 'Account created — welcome!');
+    setAuthMode('login');
     const next = state.afterAuth;
     state.afterAuth = null;
     if (state.project && state.save.dirty) saveNow();

@@ -83,6 +83,13 @@ User photos are a **third layer** (artwork · photo · lettering), except in "Pa
 - Defaults when added: graphite for wood-burning, color for certificates; position left if the empty area is wide, else top. Photo can be picked on the start screen (`state.pendingPhoto`, attached right after "Design it") or in the editor's Photo section. Tapping the photo on the design opens the Photo section.
 - No background removal yet (would need an on-device cut-out model; the good one is AGPL and large). "Soft edges" + shape is the current answer to busy backgrounds.
 
+## Forgotten password (added 2026-10-31)
+Self-service by email through Resend (`functions/_lib/mail.js`; secret **RESEND_API_KEY**, var `MAIL_FROM` = "Crafted In Honor <noreply@craftedinhonor.com>" — that domain must be verified in Resend; optional `APP_URL` for the link, else the request's origin).
+- Sign-in sheet modes (`setAuthMode`): login · signup · **forgot** ("Forgot your password?" link → email → "Email me a reset link" → same confirmation whether or not the account exists) · **reset** (opened from `/?reset=<token>`; token removed from the address bar; "New password" → signs in).
+- `POST /api/auth/forgot`: 32-byte token, only its SHA-256 stored in D1 `password_resets`, 1 hour, single use; max 3 per account per hour (extra requests quietly ignored). Without RESEND_API_KEY: local mock server returns `devLink` (tests); anywhere else → 503 "aren't set up yet" (never claims an email was sent).
+- `POST /api/auth/reset`: new PBKDF2 hash, marks token used, **deletes all the user's sessions** (signs out other devices), then signs this device in.
+- Test: `tests/e2e_reset.py`.
+
 ## Sign-in focus race (fixed 2026-10-31)
 `needAuth` focuses the email box 60 ms after opening — now only if nothing in the sheet has focus yet. Before, a fast typist/password manager (and Playwright) could have the password typed into the email box ("email+password" → 401). This was the cause of the intermittent e2e.py sign-in timeouts.
 

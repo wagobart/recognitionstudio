@@ -12,6 +12,7 @@ IMAGE_QUALITY = "high"
 PLANNER_MODEL = "gpt-4.1-mini"
 SIGNUP_MODE = "open"                # "invite" = only ALLOWED_EMAILS can create accounts; "open" = anyone
 ALLOWED_EMAILS = "wagobart@gmail.com,madisonlashae@outlook.com"
+MAIL_FROM = "Crafted In Honor <noreply@craftedinhonor.com>"  # password-reset sender; domain must be verified in Resend (secret RESEND_API_KEY)
 ADMIN_EMAILS = "wagobart@gmail.com"      # can add/remove shared Examples (My projects → Examples)
 ACCOUNT_ART_LIMIT = "15"            # AI artwork designs per account in total (free versions, photos, no-artwork designs don't count)
 UNLIMITED_EMAILS = "wagobart@gmail.com"  # no per-account total (daily limit still applies)

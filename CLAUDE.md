@@ -22,7 +22,7 @@ font/color/size/position changes never call the AI and never cost money.
 
 ## Files
 - `functions/api/[[path]].js` — single router: config, auth, plan, art, art-latest (recovery), art serving, projects CRUD.
-- `functions/_lib/design.js` — LAYOUTS (5 compositions), lettering ids, planner prompt/schema, `buildImagePrompt`, `localPlan`.
+- `functions/_lib/design.js` — LAYOUTS (5 compositions), lettering ids, planner prompt/schema, `buildImagePrompt`, `localPlan`. Planner rule (2026-10-31): borders are built from the subject's own objects and simple bands — no generic leaves/vines/flowers/wreaths/floral scrollwork unless the idea asks (veteran art was coming out leafy: the library's military ideas had laurel/poppies baked in, the planner's own example said "oak leaves", and "rich decorative border" invited scrollwork). Library: Military & veterans chip is first after All.
 - `functions/_lib/openai.js` — image call: `POST /v1/images/generations`, model `IMAGE_MODEL` (`gpt-image-2.5-sunburst`), 1536x1024, quality high; planner uses `POST /v1/chat/completions` with `PLANNER_MODEL` (`gpt-4.1-mini`); maps errors to friendly messages (moderation, 429, 401).
 - `functions/_lib/auth.js` — email+password (PBKDF2-SHA256 100k), session cookie `rs_session` (HttpOnly, 60 days), invite gate.
 - `functions/_lib/mockart.js` — test-mode SVG artwork, tagged "TEST ARTWORK — not AI". Mock tweak `SIMULATE_FAILURE` returns 502 (test hook).

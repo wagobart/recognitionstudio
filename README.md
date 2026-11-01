@@ -1,4 +1,6 @@
-# Recognition Studio
+# Crafted In Honor
+
+(Formerly "Recognition Studio" — infrastructure names such as the Pages project, D1 database and R2 bucket keep the old `recognition-studio` names.)
 
 AI-designed awards, certificates and wood-burning (pyrography) recognition pieces.
 Describe the person and occasion → AI plans the layout and paints custom artwork → you fill in

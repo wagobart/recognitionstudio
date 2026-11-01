@@ -1,4 +1,4 @@
-// Recognition Studio API (Cloudflare Pages Functions)
+// Crafted In Honor API (Cloudflare Pages Functions)
 // Bindings: DB (D1), ART (R2). Secret: OPENAI_API_KEY. See README for vars.
 import { json, err, uid, now, readJson, clean } from '../_lib/util.js';
 import { hashPassword, verifyPassword, createSession, clearCookie, getUser, endSession, newUserId, signupAllowed } from '../_lib/auth.js';

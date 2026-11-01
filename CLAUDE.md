@@ -1,4 +1,6 @@
-# CLAUDE.md — Recognition Studio internals (authoritative reference)
+# CLAUDE.md — Crafted In Honor internals (authoritative reference)
+
+**Brand (2026-10-31):** the app is **Crafted In Honor** (domain craftedinhonor.com; formerly "Recognition Studio"). The brand shows in the header (`Crafted <em>In Honor</em>`), page title, manifest (`short_name` "In Honor"), PDF creator/producer and the planner prompt. Infrastructure keeps the old names on purpose — renaming them would break deploys/data: GitHub repo `wagobart/recognitionstudio`, Pages project + D1 `recognition-studio`, R2 `recognition-studio-art`, `rs_` cookie/localStorage keys, `recognitionstudio.pages.dev` (still works).
 
 Separate app and repo from Pyrography Patterns and Stitched Patterns. Do not assume features from either exist here.
 

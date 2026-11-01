@@ -188,8 +188,8 @@ export async function renderPdf(project, { paper = 'letter', mirror = false } = 
   doc.registerFontkit(fontkit);
   const title = (project.text?.title || 'Recognition') + (project.text?.name ? ' — ' + project.text.name : '');
   doc.setTitle(title);
-  doc.setCreator('Recognition Studio');
-  doc.setProducer('Recognition Studio');
+  doc.setCreator('Crafted In Honor');
+  doc.setProducer('Crafted In Honor');
 
   const { items, rules, photo } = computeLayout(project);
   const fonts = {};

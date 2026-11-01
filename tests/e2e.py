@@ -1,4 +1,4 @@
-"""End-to-end UI test for Recognition Studio.
+"""End-to-end UI test for Crafted In Honor.
 
 Runs real user flows in Chrome (desktop + iPhone 15 *emulation*), saves each case as a
 project, reopens it, and exports real PDF/PNG files.

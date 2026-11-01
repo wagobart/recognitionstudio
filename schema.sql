@@ -1,4 +1,4 @@
--- Recognition Studio D1 schema
+-- Crafted In Honor D1 schema
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,

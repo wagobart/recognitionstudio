@@ -1,7 +1,42 @@
 // Three renderers fed by the same layout: live SVG preview, PNG (canvas) and PDF (pdf-lib).
-import { computeLayout, dims, plainOn, plainPaper } from './layout.js?v=13';
-import { cssFamily, fontBuffer, loadStyle } from './fonts.js?v=13';
-import { photoPngBytes } from './photo.js?v=13';
+import { computeLayout, dims, plainOn, plainPaper } from './layout.js?v=14';
+import { cssFamily, fontBuffer, loadStyle } from './fonts.js?v=14';
+import { photoPngBytes } from './photo.js?v=14';
+
+// ---- "Fade the artwork behind the words": a soft-edged veil over the lettering area (no AI) ----
+// Drawn per pixel (no canvas filters, which older Safari lacks) so every renderer gets the same image.
+export function washBox(project, zone) {
+  const s = Number(project.style?.wash) || 0;
+  if (!s || !project.art) return null;
+  const pad = Math.min(zone.w, zone.h) * 0.07;
+  const { W, H } = dims(project);
+  const x = Math.max(0, zone.x - pad), y = Math.max(0, zone.y - pad);
+  return { x, y, w: Math.min(W, zone.x + zone.w + pad) - x, h: Math.min(H, zone.y + zone.h + pad) - y, s, color: project.output === 'pyrography' ? [255, 255, 255] : [253, 250, 243] };
+}
+const washCache = new Map();
+function washCanvas(b) {
+  const cw = Math.max(8, Math.round(b.w / 2)), ch = Math.max(8, Math.round(b.h / 2));
+  const key = `${cw}x${ch}:${b.s}:${b.color}`;
+  if (washCache.has(key)) return washCache.get(key);
+  const c = document.createElement('canvas');
+  c.width = cw; c.height = ch;
+  const g = c.getContext('2d');
+  const im = g.createImageData(cw, ch);
+  const f = Math.min(cw, ch) * 0.16; // feather width
+  const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+  for (let y = 0; y < ch; y++)
+    for (let x = 0; x < cw; x++) {
+      const d = Math.min(x, y, cw - 1 - x, ch - 1 - y);
+      const i = (y * cw + x) * 4;
+      im.data[i] = b.color[0]; im.data[i + 1] = b.color[1]; im.data[i + 2] = b.color[2];
+      im.data[i + 3] = Math.round(255 * b.s * smooth(d / f));
+    }
+  g.putImageData(im, 0, 0);
+  const out = { canvas: c, url: c.toDataURL('image/png') };
+  if (washCache.size > 30) washCache.clear();
+  washCache.set(key, out);
+  return out;
+}
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -33,6 +68,8 @@ export function svgMarkup(project, { interactive = true, artHref } = {}) {
         (pp.border ? pp.rules.map((r) => `<rect x="${r.inset}" y="${r.inset}" width="${DESIGN_W - 2 * r.inset}" height="${DESIGN_H - 2 * r.inset}" fill="none" stroke="${pp.color}" stroke-width="${r.width}"/>`).join('') : '')
     : `<rect width="${DESIGN_W}" height="${DESIGN_H}" fill="${project.output === 'pyrography' ? '#fff' : '#f7f2e8'}"/>
        <rect x="30" y="30" width="${DESIGN_W - 60}" height="${DESIGN_H - 60}" fill="none" stroke="#d9cdb4" stroke-width="3" stroke-dasharray="14 10"/>`;
+  const wb = washBox(project, zone);
+  const wash = wb ? `<image href="${washCanvas(wb).url}" x="${wb.x.toFixed(1)}" y="${wb.y.toFixed(1)}" width="${wb.w.toFixed(1)}" height="${wb.h.toFixed(1)}" preserveAspectRatio="none"/>` : '';
   const texts = items
     .map((it) => {
       const fill = outline ? 'none' : it.color;
@@ -48,7 +85,7 @@ export function svgMarkup(project, { interactive = true, artHref } = {}) {
   const guide = interactive && project._showZone
     ? `<rect x="${zone.x}" y="${zone.y}" width="${zone.w}" height="${zone.h}" fill="rgba(80,120,255,0.07)" stroke="#4f7cff" stroke-width="3" stroke-dasharray="12 8" rx="8"/>`
     : '';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${DESIGN_W} ${DESIGN_H}" class="design-svg">${art}${guide}${photoEl}${lines}${texts}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${DESIGN_W} ${DESIGN_H}" class="design-svg">${art}${wash}${guide}${photoEl}${lines}${texts}</svg>`;
 }
 
 // ---------- shared: get artwork as raster bytes ----------
@@ -89,7 +126,7 @@ async function artRaster(project, targetW = 3000) {
 // ---------- PNG ----------
 export async function renderPng(project, width = 3000) {
   await loadStyle(project.style.lettering);
-  const { items, rules, photo } = computeLayout(project);
+  const { items, rules, photo, zone } = computeLayout(project);
   const { W: DESIGN_W, H: DESIGN_H } = dims(project);
   const k = width / Math.max(DESIGN_W, DESIGN_H); // width = the long side, either orientation
   const c = document.createElement('canvas');
@@ -114,6 +151,8 @@ export async function renderPng(project, width = 3000) {
     g.drawImage(img, 0, 0, c.width, c.height);
     URL.revokeObjectURL(url);
   }
+  const wbP = washBox(project, zone);
+  if (wbP) g.drawImage(washCanvas(wbP).canvas, wbP.x * k, wbP.y * k, wbP.w * k, wbP.h * k);
   const outline = project.output === 'pyrography' && project.style?.outline;
   if (photo) {
     const bytes = await photoPngBytes(project.photo, Math.min(2000, Math.round(Math.max(photo.w, photo.h) * k * 1.2)));
@@ -194,7 +233,7 @@ export async function renderPdf(project, { paper = 'letter', mirror = false } = 
   doc.setCreator('Crafted In Honor');
   doc.setProducer('Crafted In Honor');
 
-  const { items, rules, photo } = computeLayout(project);
+  const { items, rules, photo, zone } = computeLayout(project);
   const fonts = {};
   for (const key of new Set(items.map((i) => i.font))) fonts[key] = await doc.embedFont(await fontBuffer(key), { subset: false });
 
@@ -202,6 +241,8 @@ export async function renderPdf(project, { paper = 'letter', mirror = false } = 
   const img = ras ? (ras.type === 'png' ? await doc.embedPng(ras.bytes) : await doc.embedJpg(ras.bytes)) : null;
   // photo layer at print resolution (≈300 dpi for its printed size)
   const pimg = photo ? await doc.embedPng(await photoPngBytes(project.photo, 1800)) : null;
+  const wbD = washBox(project, zone);
+  const wimg = wbD ? await doc.embedPng(await new Promise((r) => washCanvas(wbD).canvas.toBlob((b) => b.arrayBuffer().then((a) => r(new Uint8Array(a))), 'image/png'))) : null;
 
   const { W: DESIGN_W, H: DESIGN_H } = dims(project);
   // the paper turns to match the design (landscape pages are listed wide-first)
@@ -228,6 +269,7 @@ export async function renderPdf(project, { paper = 'letter', mirror = false } = 
         for (const r of pp.rules) page.drawRectangle({ x: X(r.inset), y: Y(DESIGN_H - r.inset), width: (DESIGN_W - 2 * r.inset) * k, height: (DESIGN_H - 2 * r.inset) * k, borderColor: rgb(br, bg, bb), borderWidth: r.width * k });
       }
     }
+    if (wimg) page.drawImage(wimg, { x: X(wbD.x), y: Y(wbD.y + wbD.h), width: wbD.w * k, height: wbD.h * k });
     if (pimg) {
       const fit = Math.min(photo.w / pimg.width, photo.h / pimg.height);
       const pw = pimg.width * fit, ph = pimg.height * fit;

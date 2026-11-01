@@ -1,10 +1,10 @@
-import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=13';
-import { LAYOUT_LABELS } from './layout.js?v=13';
-import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=13';
-import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=13';
-import { detectZone } from './zone.js?v=13';
-import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=13';
-import { zoneFor, plainOn, orientOf } from './layout.js?v=13';
+import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=14';
+import { LAYOUT_LABELS } from './layout.js?v=14';
+import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=14';
+import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=14';
+import { detectZone } from './zone.js?v=14';
+import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=14';
+import { zoneFor, plainOn, orientOf } from './layout.js?v=14';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -194,6 +194,7 @@ function fillForm() {
   $('#offYRange').value = p.style.offsetY || 0;
   $('#offXRange').value = p.style.offsetX || 0;
   $('#widthRange').value = p.style.widthScale || 1;
+  syncWash();
   $('#outlineToggle').checked = !!p.style.outline;
   $('#subLines').open = !!(p.text.details);
   autosizeAll();
@@ -337,6 +338,19 @@ for (const [id, key] of [['#offYRange', 'offsetY'], ['#offXRange', 'offsetX'], [
   el.addEventListener('change', off);
   el.addEventListener('pointerup', off);
 }
+// fade the artwork behind the lettering (a soft veil drawn by the app — no AI)
+function syncWash() {
+  const r = $('#washRange');
+  if (!r || !state.project) return;
+  const w = Number(state.project.style.wash) || 0;
+  r.value = w;
+  $('#washOut').textContent = w ? Math.round(w * 100) + '%' : 'Off';
+}
+$('#washRange')?.addEventListener('input', (e) => {
+  state.project.style.wash = Number(e.target.value);
+  syncWash(); render(); markDirty();
+});
+
 $('#resetPosBtn').addEventListener('click', () => {
   Object.assign(state.project.style, { offsetX: 0, offsetY: 0, widthScale: 1 });
   fillForm(); render(); markDirty();
@@ -394,6 +408,7 @@ function syncArtSection() {
   for (const el of [$('#tweakInput').closest('.fld'), $('#redrawBtn').closest('.btn-row'), $('#layoutChips').closest('.layout-row'), $('#artPromptInput').closest('details'), $('#designNotes')])
     el.hidden = plain;
   $('#noArtBtn').hidden = plain || busy;
+  if ($('#washRow')) $('#washRow').hidden = plain || !p.art;
   $('#galleryPickBtn').hidden = busy;
   const shareable = !!shareableArtOf(p);
   $('#shareRow').hidden = !shareable;

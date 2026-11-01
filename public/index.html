@@ -28,7 +28,7 @@
   gtag('config', id, { page_location: u.href });
 })();
 </script>
-<link rel="stylesheet" href="/css/app.css?v=13">
+<link rel="stylesheet" href="/css/app.css?v=14">
 </head>
 <body>
 <header class="top">
@@ -198,6 +198,10 @@
             <button class="primary-btn wide" id="addArtBtn" type="button">Add AI artwork</button>
           </div>
           <div class="versions" id="versions" hidden></div>
+          <div class="wash-row" id="washRow">
+            <label class="range"><span>Fade art behind the words</span><input type="range" id="washRange" min="0" max="0.9" step="0.05" value="0"><output id="washOut">Off</output></label>
+            <p class="hint">Softens whatever is drawn under the lettering so the words read clearly. Free — no redraw.</p>
+          </div>
           <label class="fld"><span>Change something</span><textarea id="tweakInput" rows="2" placeholder="e.g. make the tool belt larger, add oak leaves, warmer colors"></textarea></label>
           <div class="btn-row">
             <button class="primary-btn" id="redrawBtn" type="button">Redraw with change</button>
@@ -322,6 +326,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script type="module" src="/js/app.js?v=13"></script>
+<script type="module" src="/js/app.js?v=14"></script>
 </body>
 </html>

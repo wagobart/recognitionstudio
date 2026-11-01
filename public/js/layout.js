@@ -1,8 +1,8 @@
 // Lettering layout engine. Produces positioned text items in a 1500 x 1000 design space
 // (landscape) or 1000 x 1500 (portrait).
 // The SVG preview, PNG export and PDF export all draw from this one result.
-import { STYLES, cssFamily } from './fonts.js?v=13';
-import { photoAspect, photoLayerOn } from './photo.js?v=13';
+import { STYLES, cssFamily } from './fonts.js?v=14';
+import { photoAspect, photoLayerOn } from './photo.js?v=14';
 
 export const DESIGN_W = 1500; // landscape design space (portrait swaps the two)
 export const DESIGN_H = 1000;

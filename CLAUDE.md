@@ -79,6 +79,9 @@ Every design is landscape (1500×1000 design space, 1536×1024 art) or **portrai
 - Exports: PDF page turns to match (Letter portrait = 612×792); PNG `width` arg = the long side.
 - Test: `tests/e2e_portrait.py` (desktop + iPhone; tall certificate, wood-burning version, redraw wide/back, versions, reopen, thumbnail, plain flip, gallery).
 
+## Fade art behind the words (added 2026-11-01)
+Artwork section slider **"Fade art behind the words"** (`#washRange`, `style.wash` 0–0.9, default off; hidden with no artwork). `render.js washBox/washCanvas`: a soft-edged veil (white for wood-burning, `#fdfaf3` for certificates) over the lettering zone + 7% padding, feathered per pixel (no canvas `filter`, which older Safari lacks), drawn between the artwork and the photo/lettering in SVG, PNG and PDF alike. Free, no AI. Added after a real portrait Navy pattern put a bold anchor right in the center under the words. Same day the prompts were tightened so that doesn't happen: planner rule "the focal subject goes where the layout puts artwork … never in the middle of the page", and `KEEP_EMPTY` in both buildImagePrompt branches ("do not put the main subject, a large centered emblem, a faint watermark or any background picture in it").
+
 ## Designs with no artwork (photo + words)
 `project.plainBg = true` with `art = null` (`layout.plainOn(p)`): clean paper + optional app-drawn double-rule border (`plainPaper`: cream `#faf6ec` or white via `style.paper`, wood-burning always white; `style.border` default on, drawn in the heading color, insets 40/58) — rendered by SVG, PNG and PDF. Lettering area `PLAIN_ZONE` {120,105,1260,790}; a full-size photo stops inside the border.
 - Start screen: once a photo is chosen, checkbox **"No artwork — just my photo and words"** (`#noArtToggle`). `startDesign` still plans (wording) but never calls `/api/art`; photo defaults to size 1.5.

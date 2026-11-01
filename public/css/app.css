@@ -395,3 +395,6 @@ svg { flex: none; }
 @media (min-width: 900px) {
   .studio[data-view="editor"] .stage.portrait { width: min(100%, calc((100dvh - var(--top-h) - 100px) * 2 / 3)); max-width: none; }
 }
+.wash-row { margin: 4px 0 10px; }
+.wash-row .range > span { width: auto; max-width: 128px; line-height: 1.2; }
+.wash-row .hint { margin: -6px 0 0; }

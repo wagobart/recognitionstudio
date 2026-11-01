@@ -82,6 +82,9 @@ User photos are a **third layer** (artwork · photo · lettering), except in "Pa
 - Defaults when added: graphite for wood-burning, color for certificates; position left if the empty area is wide, else top. Photo can be picked on the start screen (`state.pendingPhoto`, attached right after "Design it") or in the editor's Photo section. Tapping the photo on the design opens the Photo section.
 - No background removal yet (would need an on-device cut-out model; the good one is AGPL and large). "Soft edges" + shape is the current answer to busy backgrounds.
 
+## Caching (2026-10-31)
+`public/_headers` sends `Cache-Control: no-cache` for `/`, `/index.html`, `/js/*`, `/css/*` (browser re-checks each load; unchanged files are a quick 304). Added after an iPhone showed the new HTML (gallery tabs) with stale JS (tap did nothing). The `?v=` on app.js/app.css in index.html is a belt-and-braces bump — raise it when shipping UI changes.
+
 ## Fonts — important
 TTFs are Google Fonts (OFL), static instances, subset to Latin, **GSUB removed**, name table renamed `RS-*`.
 - GSUB removal is deliberate: pdf-lib applied ligatures/contextual alternates differently from the browser, causing gaps and lost text in PDFs.

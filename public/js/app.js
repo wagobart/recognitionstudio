@@ -120,7 +120,7 @@ function blankProject(idea, output) {
 }
 
 function serializable(p) {
-  const { _placeholders, _showZone, _photoHref, ...rest } = p;
+  const { _placeholders, _showZone, _photoHref, _toldShared, ...rest } = p;
   return rest;
 }
 
@@ -383,6 +383,10 @@ function syncArtSection() {
   for (const el of [$('#tweakInput').closest('.fld'), $('#redrawBtn').closest('.btn-row'), $('#layoutChips').closest('.layout-row'), $('#artPromptInput').closest('details'), $('#designNotes')])
     el.hidden = plain;
   $('#noArtBtn').hidden = plain || busy;
+  $('#galleryPickBtn').hidden = busy;
+  const shareable = !!shareableArtOf(p);
+  $('#shareRow').hidden = !shareable;
+  $('#shareToggle').checked = shareable && isSharedP(p);
   // versions
   const v = $('#versions');
   v.hidden = p.artHistory.length < 2;
@@ -405,6 +409,22 @@ function syncArtSection() {
     ? 'Test mode: artwork is a free placeholder (no AI).'
     : u ? artLeftText(u) : '';
 }
+// ---- public gallery: only the user's own AI artwork, never wording, names or photos ----
+// (mirrors shareableArt/isShared on the server, which decides what is actually listed)
+function shareableArtOf(p) {
+  const uid = state.user?.id;
+  return [...(p.artHistory || [])].reverse().find((a) => a && uid && String(a.key || '').startsWith(`art/${uid}/`)
+    && !a.derivedFrom && !a.fromPhoto && !a.fromGallery && !a.fromExample) || null;
+}
+const isSharedP = (p) => (typeof p.share === 'boolean' ? p.share : !!p.fromIdea);
+const sharedNow = (p) => !!shareableArtOf(p) && isSharedP(p);
+$('#shareToggle').addEventListener('change', (e) => {
+  state.project.share = e.target.checked;
+  markDirty();
+  toast(e.target.checked ? 'Shared in the public gallery — artwork only.' : 'Not shared — removed from the gallery.');
+});
+$('#galleryPickBtn').addEventListener('click', () => openLibrary({ tab: 'gallery', forEditor: true }));
+
 // Accounts have a total number of AI artwork designs (the owner's has none); the daily limit applies to everyone
 function artLeftText(u) {
   if (u.accountArtLimit != null) {
@@ -569,7 +589,10 @@ async function generateArt({ tweak = '', layout, output, seed, withPhoto } = {})
     $('#tweakInput').value = '';
     stageOverlay(null);
     setArtStatus(null);
-    toast(p.artHistory.length > 1 ? 'New artwork ready ✓  Earlier versions are under Artwork.' : 'Artwork ready ✓');
+    const shared = sharedNow(p) && !p._toldShared;
+    if (shared) p._toldShared = true;
+    toast((p.artHistory.length > 1 ? 'New artwork ready ✓  Earlier versions are under Artwork.' : 'Artwork ready ✓')
+      + (shared ? ' It’s shared in the public gallery (artwork only) — turn that off under Artwork.' : ''), { ms: shared ? 5200 : 3200 });
     refreshUsage();
   } catch (e) {
     if (e.status === 401) return needAuth(() => generateArt({ tweak, layout, output, seed }));
@@ -859,7 +882,7 @@ $('#startPhotoInput').addEventListener('change', async (e) => {
     $('#startPhotoThumb').src = prep.localUrl;
     $('#startPhotoNote').hidden = false;
     $('#startPhotoLabel').textContent = 'Change photo';
-    $('#noArtRow').hidden = false;
+    $('#noArtRow').hidden = !!state.pendingGallery; // gallery artwork chosen: "no artwork" doesn't apply
   } catch (err) {
     toast(err.message, { error: true });
   }
@@ -879,14 +902,18 @@ $('#idea').addEventListener('keydown', (e) => {
 async function startDesign() {
   const idea = $('#idea').value.trim();
   // a description, a photo, or both
-  if (idea.length < 3 && !state.pendingPhoto) {
+  if (idea.length < 3 && !state.pendingPhoto && !state.pendingGallery) {
     $('#idea').focus();
     toast('Describe who it’s for, or add a photo — or browse ideas.');
     return;
   }
   if (!state.user) return needAuth(startDesign);
-  const output = selectedOutput();
-  const p = blankProject(idea, output);
+  const gal = state.pendingGallery;
+  const output = gal ? gal.art.output : selectedOutput();
+  const p = blankProject(idea || gal?.idea || '', output);
+  // still the library idea (perhaps with their own details added) → its artwork is shared by default
+  const li = state.pendingIdea;
+  if (li && idea.includes(li.p.slice(0, 40))) p.fromIdea = { id: li.id, t: li.t, p: li.p };
   if (output === 'pyrography') Object.assign(p.style, { headColor: BURN, textColor: BURN });
   state.project = p;
   state.pendingLayout = null;
@@ -894,7 +921,7 @@ async function startDesign() {
   fillForm();
   render();
   const pend = state.pendingPhoto;
-  const noArt = !!pend && $('#noArtToggle').checked;
+  const noArt = !!pend && !gal && $('#noArtToggle').checked;
   p.plainBg = noArt;
   if (pend) clearStartPhoto(false);
   stageOverlay('busy', progressHtml(pend ? 0 : 1, !!pend));
@@ -920,13 +947,25 @@ async function startDesign() {
   setArtStatus('busy', `<div class="spinner"></div><span>Designing… this takes about a minute.</span>`);
   $('#secWording').open = true;
   try {
-    const { plan } = await api('/api/plan', { method: 'POST', body: { idea, output, ...(p.photo?.key ? { photoKey: p.photo.key } : {}) } });
+    const { plan } = await api('/api/plan', { method: 'POST', body: { idea: p.idea || (gal ? gal.title : ''), output, ...(p.photo?.key ? { photoKey: p.photo.key } : {}) } });
     applyPlan(plan);
   } catch (e) {
     if (e.status === 401) { setView('start'); return needAuth(startDesign); }
     toast('Couldn’t plan the design — using a standard layout.', { error: true });
   }
   markDirty();
+  if (gal) {
+    // artwork from the gallery: already painted, nothing to pay for
+    clearStartGallery();
+    p.plan.layout = gal.art.layout || p.plan.layout;
+    p.art = gal.art;
+    p.artHistory.push(gal.art);
+    stageOverlay(null);
+    setArtStatus(null);
+    afterArtChange();
+    toast('Ready ✓ Gallery artwork with your wording — edit anything.', { ms: 3600 });
+    return;
+  }
   if (p.plainBg) {
     // just the photo and words: nothing to paint
     stageOverlay(null);
@@ -1015,8 +1054,14 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) saveN
 // ---------------- library ----------------
 $('#browseBtn').addEventListener('click', openLibrary);
 
-async function openLibrary() {
+async function openLibrary(opts = {}) {
+  // from the editor the sheet is only the gallery (ideas belong to the start screen)
+  state.lib.forEditor = !!opts.forEditor;
+  state.lib.galOut = undefined;
+  $('#libSeg').hidden = state.lib.forEditor;
   openSheet('libSheet');
+  setLibTab(opts.tab === 'gallery' || opts.forEditor ? 'gallery' : 'ideas');
+  if (state.lib.tab === 'gallery') return;
   const chips = $('#libChips');
   if (!chips.childElementCount) {
     CHIPS.forEach((c, i) => {
@@ -1033,6 +1078,103 @@ async function openLibrary() {
   renderLib();
   if (!isPhoneLike()) $('#libSearch').focus();
 }
+
+function setLibTab(tab) {
+  state.lib.tab = tab;
+  const g = tab === 'gallery';
+  $$('#libSeg button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+  $('#libTitle').textContent = g ? (state.lib.forEditor ? 'Artwork from the gallery' : 'Artwork gallery') : 'Ideas to start from';
+  $('#ideaTools').hidden = g;
+  $('#libList').hidden = g;
+  $('#galChips').hidden = !g;
+  $('#galWrap').hidden = !g;
+  if (g) loadGallery(true);
+  else { $('#libCount').textContent = ''; if ($('#libList').childElementCount) renderLib(); }
+}
+$$('#libSeg button').forEach((b) => b.addEventListener('click', async () => {
+  setLibTab(b.dataset.tab);
+  if (b.dataset.tab === 'ideas' && !$('#libList').childElementCount) { await openLibrary(); }
+}));
+$$('#galChips .chip').forEach((b) => b.addEventListener('click', () => { state.lib.galOut = b.dataset.out; loadGallery(true); }));
+
+async function loadGallery(reset) {
+  const grid = $('#galGrid');
+  if (state.lib.galOut === undefined) state.lib.galOut = state.lib.forEditor ? (state.project?.output || '') : '';
+  $$('#galChips .chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.out === state.lib.galOut)));
+  if (reset) { state.lib.galOffset = 0; grid.innerHTML = '<p class="empty">Loading artwork…</p>'; $('#galWrap').scrollTop = 0; }
+  try {
+    const q = new URLSearchParams({ offset: state.lib.galOffset || 0, ...(state.lib.galOut ? { output: state.lib.galOut } : {}) });
+    const { items, more, admin } = await api('/api/gallery?' + q);
+    if (reset) grid.innerHTML = '';
+    grid.querySelector('.lib-more')?.remove();
+    $('#libCount').textContent = 'Artwork other designers shared — tap one to put your own words on it. Free: it doesn’t use an AI design.';
+    if (reset && !items.length) grid.innerHTML = '<p class="empty">Nothing here yet.</p>';
+    for (const it of items) grid.appendChild(galleryItem(it, admin));
+    state.lib.galOffset = (state.lib.galOffset || 0) + items.length;
+    if (more) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'ghost-btn lib-more'; b.textContent = 'Show more';
+      b.addEventListener('click', () => loadGallery(false));
+      grid.appendChild(b);
+    }
+  } catch (e) {
+    grid.innerHTML = `<p class="empty">Couldn’t load the gallery: ${e.message}</p>`;
+  }
+}
+
+function galleryItem(it, admin) {
+  const d = document.createElement('div');
+  d.className = 'gal-item';
+  d.dataset.id = it.id;
+  d.innerHTML = `<button type="button" class="gal-open"><img loading="lazy" alt=""><span></span></button>${admin ? '<button type="button" class="gal-hide">Hide</button>' : ''}`;
+  d.querySelector('img').src = it.url;
+  d.querySelector('span').textContent = it.title;
+  d.querySelector('.gal-open').addEventListener('click', () => useGalleryArt(it));
+  d.querySelector('.gal-hide')?.addEventListener('click', async () => {
+    if (!confirm('Hide this artwork from the gallery for everyone?')) return;
+    try { await api(`/api/gallery/${it.id}`, { method: 'DELETE' }); d.remove(); } catch (e) { toast('Couldn’t hide it: ' + e.message, { error: true }); }
+  });
+  return d;
+}
+
+// Tapping gallery artwork: in the editor it replaces the current artwork (earlier art stays under
+// versions); on the start screen it's held for "Design it", like a chosen photo.
+async function useGalleryArt(it) {
+  if (!state.user) return needAuth(() => useGalleryArt(it));
+  try {
+    const res = await api(`/api/gallery/${it.id}/use`, { method: 'POST' });
+    if (state.lib.forEditor && state.project) {
+      const p = state.project;
+      p.plainBg = false;
+      p.artHistory.push(res.art);
+      if (p.artHistory.length > 24) p.artHistory.shift();
+      useArtVersion(p, res.art);
+      adjustPhotoFor(p, res.art.output);
+      closeSheet();
+      setArtStatus(null);
+      afterArtChange();
+      toast('Gallery artwork in place ✓ Your wording is unchanged. Earlier artwork is under versions.', { ms: 4200 });
+    } else {
+      clearStartGallery();
+      state.pendingGallery = { art: res.art, title: res.title, idea: res.idea };
+      $('#startGalThumb').src = res.art.url;
+      $('#startGalNote').hidden = false;
+      $$('input[name="output"]').forEach((r) => (r.checked = r.value === res.art.output));
+      $('#noArtRow').hidden = true;
+      closeSheet();
+      toast('Artwork chosen — describe who it’s for (or not), then Design it.', { ms: 3600 });
+    }
+  } catch (e) {
+    if (e.status === 401) return needAuth(() => useGalleryArt(it));
+    toast('Couldn’t use that artwork: ' + e.message, { error: true });
+  }
+}
+function clearStartGallery() {
+  state.pendingGallery = null;
+  $('#startGalNote').hidden = true;
+  if (state.pendingPhoto) $('#noArtRow').hidden = false;
+}
+$('#startGalRemove').addEventListener('click', clearStartGallery);
 
 let libTimer;
 $('#libSearch').addEventListener('input', () => {
@@ -1079,6 +1221,7 @@ function renderLib() {
 
 function useIdea(x) {
   $('#idea').value = x.p;
+  state.pendingIdea = x; // a design started from a library idea shares its artwork by default
   if (x.c === 'Wood-Burning Showpieces') $('input[name="output"][value="pyrography"]').checked = true;
   closeSheet();
   const ta = $('#idea');
@@ -1520,7 +1663,7 @@ async function restoreLast() {
   buildLayoutChips();
   buildPhotoChips();
   setView('start');
-  loadLibrary().then((d) => ($('#ideaCount').textContent = d.length.toLocaleString()));
+  loadLibrary().catch(() => {});
   try {
     await loadConfig();
   } catch (e) {

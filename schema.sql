@@ -64,3 +64,22 @@ CREATE TABLE IF NOT EXISTS app_alerts (
   key TEXT PRIMARY KEY,
   created_at INTEGER NOT NULL
 );
+
+-- Public artwork gallery: just the AI artwork (never wording, names or photos), one row per
+-- project that shares it. Kept in step with the project on every save (see syncGallery).
+CREATE TABLE IF NOT EXISTS gallery (
+  id TEXT PRIMARY KEY,           -- 'g_' + project id without 'p_'
+  project_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  art_key TEXT NOT NULL,         -- R2 key of the shared artwork (in the sharer's folder)
+  output TEXT NOT NULL,
+  layout TEXT,
+  zone TEXT,                     -- JSON of the measured lettering area
+  title TEXT,                    -- library idea title, or a generic label — never user text
+  idea TEXT,                     -- library idea text (only when it came from the library)
+  hidden INTEGER NOT NULL DEFAULT 0,  -- hidden by the site owner
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_gallery_list ON gallery(hidden, output, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_gallery_art ON gallery(art_key);

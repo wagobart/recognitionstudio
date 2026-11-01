@@ -45,8 +45,38 @@ const isAdmin = (env, user) => !!user && String(env.ADMIN_EMAILS || '').toLowerC
 
 // Images a user may view: their own, plus any image belonging to a shared example
 async function canView(env, user, key, ownerId) {
-  if (ownerId === user.id) return true;
+  if (user && ownerId === user.id) return true;
+  if (await env.DB.prepare('SELECT 1 FROM gallery WHERE art_key=? AND hidden=0').bind(key).first()) return true;
+  if (!user) return false;
   return !!(await env.DB.prepare('SELECT 1 FROM example_assets WHERE key=?').bind(key).first());
+}
+
+// ---------- public gallery ----------
+// Only AI artwork the user made themselves can be shared: not a derived version, not artwork painted
+// from their photo (their subject's likeness), not artwork taken from the gallery.
+function shareableArt(p, userId) {
+  return [...(p.artHistory || [])].reverse().find((a) => a && typeof a.key === 'string' && a.key.startsWith(`art/${userId}/`)
+    && !a.derivedFrom && !a.fromPhoto && !a.fromGallery && !a.fromExample) || null;
+}
+// Shared by default when the design started from a library idea; the user's own choice wins
+const isShared = (p) => (typeof p.share === 'boolean' ? p.share : !!p.fromIdea);
+
+async function syncGallery(env, userId, p) {
+  const gid = 'g_' + String(p.id).replace(/^p_/, '');
+  let art = isShared(p) ? shareableArt(p, userId) : null;
+  // the same picture is listed once (e.g. a duplicated project keeps the original's listing)
+  if (art && (await env.DB.prepare('SELECT 1 FROM gallery WHERE art_key=? AND id<>?').bind(art.key, gid).first())) art = null;
+  if (!art) return env.DB.prepare('DELETE FROM gallery WHERE id=? AND user_id=?').bind(gid, userId).run();
+  const output = art.output === 'pyrography' ? 'pyrography' : 'certificate';
+  const title = clean(p.galleryTitle || p.fromIdea?.t, 120) || (output === 'pyrography' ? 'Wood-burning artwork' : 'Certificate artwork');
+  const t = now();
+  // hidden stays as the owner set it; a different artwork is a new thing to review, so it shows again
+  return env.DB.prepare(
+    `INSERT INTO gallery (id,project_id,user_id,art_key,output,layout,zone,title,idea,hidden,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,0,?,?)
+     ON CONFLICT(id) DO UPDATE SET art_key=excluded.art_key, output=excluded.output, layout=excluded.layout, zone=excluded.zone, title=excluded.title, idea=excluded.idea,
+       hidden=CASE WHEN gallery.art_key=excluded.art_key THEN gallery.hidden ELSE 0 END,
+       updated_at=CASE WHEN gallery.art_key=excluded.art_key THEN gallery.updated_at ELSE excluded.updated_at END`
+  ).bind(gid, p.id, userId, art.key, output, art.layout || 'framed', art.zone ? JSON.stringify(art.zone) : null, title, clean(p.fromIdea?.p, 1500) || null, t, t).run();
 }
 
 // Every R2 image a project refers to (current art, versions, derived-from links, photo)
@@ -241,6 +271,7 @@ route('POST', '/api/photos', async ({ env, request, user }) => {
 });
 
 route('GET', '/api/photo/(u_[a-z0-9]+)/(ph_[a-z0-9]+)', async ({ env, user, m }) => {
+  // photos are never in the gallery: only the owner, or signed-in users for shared Examples
   if (!(await canView(env, user, `photo/${m[1]}/${m[2]}`, m[1]))) return err('Not found', 404);
   const obj = await env.ART.get(`photo/${m[1]}/${m[2]}`);
   if (!obj) return err('Not found', 404);
@@ -256,7 +287,7 @@ route('GET', '/api/art/(u_[a-z0-9]+)/(a_[a-z0-9]+)', async ({ env, user, m }) =>
   return new Response(obj.body, {
     headers: { 'content-type': obj.httpMetadata?.contentType || 'image/png', 'cache-control': 'private, max-age=31536000, immutable' },
   });
-});
+}, { public: true }); // gallery artwork can be seen before signing in; everything else checks the owner
 
 // ---------- projects ----------
 route('GET', '/api/projects', async ({ env, user }) => {
@@ -289,11 +320,15 @@ route('PUT', '/api/projects/(p_[a-z0-9]+)', async ({ env, user, m, request }) =>
   )
     .bind(m[1], user.id, title, output, raw, artKey, existing?.created_at || t, t)
     .run();
+  try { await syncGallery(env, user.id, { ...p, id: m[1] }); } catch (e) { console.log('gallery sync failed', e.message); }
   return json({ ok: true, savedAt: t });
 });
 
 route('DELETE', '/api/projects/(p_[a-z0-9]+)', async ({ env, user, m }) => {
-  await env.DB.prepare('DELETE FROM projects WHERE id=? AND user_id=?').bind(m[1], user.id).run();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM projects WHERE id=? AND user_id=?').bind(m[1], user.id),
+    env.DB.prepare('DELETE FROM gallery WHERE project_id=? AND user_id=?').bind(m[1], user.id),
+  ]);
   return json({ ok: true });
 });
 
@@ -320,6 +355,9 @@ route('POST', '/api/examples/(ex_[a-z0-9]+)/copy', async ({ env, user, m }) => {
   const p = JSON.parse(raw);
   const t = now();
   Object.assign(p, { id: uid('p_'), createdAt: t, updatedAt: t, fromExample: m[1] });
+  // the example's artwork is already the owner's to share; a copy never re-lists it
+  for (const a of [...(p.artHistory || []), p.art]) if (a) a.fromExample = true;
+  delete p.share; delete p.fromIdea;
   const out = JSON.stringify(p);
   const artKey = typeof p?.art?.key === 'string' && p.art.key.startsWith(`art/${user.id}/`) ? p.art.key : null;
   await env.DB.prepare('INSERT INTO projects (id,user_id,title,output,data,art_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)')
@@ -347,6 +385,41 @@ route('DELETE', '/api/examples/(ex_[a-z0-9]+)', async ({ env, user, m }) => {
     env.DB.prepare('DELETE FROM examples WHERE id=?').bind(m[1]),
     env.DB.prepare('DELETE FROM example_assets WHERE example_id=?').bind(m[1]),
   ]);
+  return json({ ok: true });
+});
+
+// ---------- public gallery ----------
+const GALLERY_PAGE = 24;
+route('GET', '/api/gallery', async ({ env, user, url }) => {
+  const output = url.searchParams.get('output');
+  const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+  const where = output === 'pyrography' || output === 'certificate' ? 'hidden=0 AND output=?' : 'hidden=0';
+  const q = env.DB.prepare(`SELECT id,art_key,output,layout,zone,title FROM gallery WHERE ${where} ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
+  const { results } = await (where.includes('?') ? q.bind(output, GALLERY_PAGE + 1, offset) : q.bind(GALLERY_PAGE + 1, offset)).all();
+  const items = results.slice(0, GALLERY_PAGE).map((r) => ({ id: r.id, url: `/api/${r.art_key}`, output: r.output, layout: r.layout, title: r.title }));
+  return json({ items, more: results.length > GALLERY_PAGE, admin: isAdmin(env, user) });
+}, { public: true });
+
+// Using gallery artwork: copied into the user's own account (free — not an AI design)
+route('POST', '/api/gallery/(g_[a-z0-9]+)/use', async ({ env, user, m }) => {
+  const g = await env.DB.prepare('SELECT * FROM gallery WHERE id=? AND hidden=0').bind(m[1]).first();
+  if (!g) return err('That artwork is no longer in the gallery.', 404);
+  const obj = await env.ART.get(g.art_key);
+  if (!obj) return err('That artwork is no longer available.', 404);
+  const contentType = obj.httpMetadata?.contentType || 'image/png';
+  const key = `art/${user.id}/${uid('a_')}`;
+  await env.ART.put(key, await obj.arrayBuffer(), { httpMetadata: { contentType } });
+  let zone = null;
+  try { zone = g.zone ? JSON.parse(g.zone) : null; } catch {}
+  return json({
+    art: { key, url: `/api/${key}`, contentType, width: 1536, height: 1024, layout: g.layout || 'framed', output: g.output, fromGallery: g.id, ...(zone ? { zone } : {}) },
+    title: g.title, idea: g.idea || '',
+  });
+});
+
+route('DELETE', '/api/gallery/(g_[a-z0-9]+)', async ({ env, user, m }) => {
+  if (!isAdmin(env, user)) return err('Not found', 404);
+  await env.DB.prepare('UPDATE gallery SET hidden=1 WHERE id=?').bind(m[1]).run();
   return json({ ok: true });
 });
 

@@ -46,7 +46,7 @@
       <div class="start-tools">
         <button class="ghost-btn" id="browseBtn" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <span>Browse <b id="ideaCount">1,000+</b> ideas</span>
+          <span>Browse ideas &amp; art</span>
         </button>
         <label class="ghost-btn file-btn" id="startPhotoBtn">
           <input type="file" accept="image/*" id="startPhotoInput">
@@ -54,6 +54,7 @@
         </label>
       </div>
       <p class="start-photo" id="startPhotoNote" hidden><img id="startPhotoThumb" alt=""><span>Photo added — you’ll choose how it appears after designing.</span><button class="text-btn" id="startPhotoRemove" type="button">Remove</button></p>
+      <p class="start-photo start-gal" id="startGalNote" hidden><img id="startGalThumb" alt=""><span>Gallery artwork chosen — free. Your wording goes on top.</span><button class="text-btn" id="startGalRemove" type="button">Remove</button></p>
       <label class="toggle start-noart" id="noArtRow" hidden><input type="checkbox" id="noArtToggle"><span>No artwork — just my photo and words <small>Free and instant. You can add AI artwork later.</small></span></label>
       <fieldset class="output-pick">
         <legend>Make it as a…</legend>
@@ -182,6 +183,8 @@
           </div>
           <div class="layout-row"><span class="row-label">Composition</span><div class="chips" id="layoutChips"></div></div>
           <button class="ghost-btn wide" id="switchOutputBtn" type="button"></button>
+          <label class="toggle share-row" id="shareRow" hidden><input type="checkbox" id="shareToggle"><span>Share in the public gallery <small>Only the artwork — never your wording, names or photo.</small></span></label>
+          <button class="text-btn" id="galleryPickBtn" type="button">Use artwork from the gallery — free</button>
           <button class="text-btn" id="noArtBtn" type="button">Use no artwork (just photo and words)</button>
           <details class="sub">
             <summary>Full artwork description <small>advanced</small></summary>
@@ -208,11 +211,21 @@
 <section class="sheet" id="libSheet" role="dialog" aria-modal="true" aria-labelledby="libTitle" hidden>
   <header class="sheet-head"><h2 id="libTitle">Ideas to start from</h2><button class="icon-btn close" data-close aria-label="Close">✕</button></header>
   <div class="lib-tools">
-    <input type="search" id="libSearch" placeholder="Search: carpenter, nurse, 25 years, fishing…" autocomplete="off" enterkeyhint="search">
-    <div class="chips scroll" id="libChips"></div>
+    <div class="seg lib-seg" id="libSeg" role="tablist">
+      <button type="button" role="tab" data-tab="ideas" aria-selected="true">Ideas</button>
+      <button type="button" role="tab" data-tab="gallery" aria-selected="false">Artwork gallery</button>
+    </div>
+    <div id="ideaTools">
+      <input type="search" id="libSearch" placeholder="Search: carpenter, nurse, 25 years, fishing…" autocomplete="off" enterkeyhint="search">
+      <div class="chips scroll" id="libChips"></div>
+    </div>
+    <div class="chips" id="galChips" hidden>
+      <button type="button" class="chip" data-out="">All</button><button type="button" class="chip" data-out="certificate">Certificates</button><button type="button" class="chip" data-out="pyrography">Wood-burning</button>
+    </div>
   </div>
   <p class="lib-count" id="libCount"></p>
   <ul class="lib-list" id="libList"></ul>
+  <div class="lib-list gal-wrap" id="galWrap" hidden><div class="gal-grid" id="galGrid"></div></div>
 </section>
 
 <section class="sheet" id="exportSheet" role="dialog" aria-modal="true" aria-labelledby="exportTitle" hidden>

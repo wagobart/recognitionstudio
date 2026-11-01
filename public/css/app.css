@@ -358,3 +358,15 @@ svg { flex: none; }
 .proj-ex > .proj-grid { margin-top: 6px; }
 .empty.compact { padding: 2px 0 4px; text-align: left; grid-column: 1 / -1; font-size: 14px; }
 @media (max-width: 370px) { .brand { font-size: 15px; gap: 5px; } .brand-mark { width: 22px; height: 22px; } .top-nav { gap: 2px; } }
+
+/* Ideas | Artwork gallery */
+.lib-seg { margin-bottom: 10px; }
+.gal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 4px; }
+@media (min-width: 700px) { .gal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.gal-item { position: relative; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; overflow: hidden; }
+.gal-item > button.gal-open { display: block; width: 100%; border: 0; padding: 0; background: none; text-align: left; }
+.gal-item img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; background: #eee; }
+.gal-item span { display: block; padding: 6px 9px 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gal-hide { position: absolute; top: 4px; right: 4px; border: 0; border-radius: 999px; background: rgba(255,255,255,.92); font-size: 12px; font-weight: 600; padding: 4px 9px; color: var(--danger); }
+.gal-wrap .lib-more { grid-column: 1 / -1; }
+.share-row small { display: block; }

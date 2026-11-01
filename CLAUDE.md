@@ -116,4 +116,4 @@ A signature column renders if name OR role is set (role-only = blank line to sig
 - Server errors never lose work: localStorage draft is restored if newer than cloud copy.
 
 ## Known gaps (as of 2026-10-31)
-No password reset (no email provider); photos in R2 are never cleaned up either; no background removal; no admin UI; orphaned R2 images are never cleaned up; pyrography page sizes are fit-to-paper (no actual-size tiling); real-iPhone behaviour not yet verified; planner can produce awkward lead-in lines — see docs/TESTING.md.
+Password reset email depends on RESEND_API_KEY (secret set in Cloudflare 2026-11-01) and a Resend-verified craftedinhonor.com; photos in R2 are never cleaned up; no background removal; no admin UI; orphaned R2 images are never cleaned up; pyrography page sizes are fit-to-paper (no actual-size tiling); real-iPhone behaviour not yet verified; planner can produce awkward lead-in lines — see docs/TESTING.md.

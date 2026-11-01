@@ -93,6 +93,9 @@ Self-service by email through Resend (`functions/_lib/mail.js`; secret **RESEND_
 ## Sign-in focus race (fixed 2026-10-31)
 `needAuth` focuses the email box 60 ms after opening — now only if nothing in the sheet has focus yet. Before, a fast typist/password manager (and Playwright) could have the password typed into the email box ("email+password" → 401). This was the cause of the intermittent e2e.py sign-in timeouts.
 
+## Icons (2026-11-01)
+Award-ribbon mark (navy `#1f3a5f` tile, gold rosette + star + ribbon tails). `public/icon.svg` (full, rounded tile) · `favicon.svg` + `favicon.ico` (16/32/48) = simplified rosette without ribbons so it stays crisp in browser tabs · `icon-180.png` (apple-touch, square — iOS rounds it) · `icon-192/512.png` · `icon-maskable-512.png` (medal at 80% for Android masks). Header `.brand-mark` is the same mark in `currentColor` (viewBox cropped to `10 7 44 51`). Regenerate all from one script if the mark changes; never hand-edit the PNGs.
+
 ## Caching (2026-10-31)
 `public/_headers` sends `Cache-Control: no-cache` for `/`, `/index.html`, `/js/*`, `/css/*` (browser re-checks each load; unchanged files are a quick 304). Added after an iPhone showed the new HTML (gallery tabs) with stale JS (tap did nothing). The `?v=` on app.js/app.css in index.html is a belt-and-braces bump — raise it when shipping UI changes.
 

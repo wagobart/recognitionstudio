@@ -1,7 +1,7 @@
 // Three renderers fed by the same layout: live SVG preview, PNG (canvas) and PDF (pdf-lib).
-import { computeLayout, dims, plainOn, plainPaper } from './layout.js';
-import { cssFamily, fontBuffer, loadStyle } from './fonts.js';
-import { photoPngBytes } from './photo.js';
+import { computeLayout, dims, plainOn, plainPaper } from './layout.js?v=13';
+import { cssFamily, fontBuffer, loadStyle } from './fonts.js?v=13';
+import { photoPngBytes } from './photo.js?v=13';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 

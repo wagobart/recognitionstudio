@@ -6,7 +6,7 @@ import { bytesToB64 } from './util.js';
 export const LAYOUTS = {
   framed: {
     label: 'Framed',
-    art: 'a rich decorative border running around all four edges of the page; the themed objects and motifs are woven INTO the border and corners. The entire central area (about 64% of the width and 66% of the height, centered) is a plain, smooth, completely empty background with nothing in it',
+    art: 'a rich decorative border running around all four edges of the page, built from the themed objects and motifs themselves (woven INTO the border and corners) rather than generic leafy or floral ornament. The entire central area (about 64% of the width and 66% of the height, centered) is a plain, smooth, completely empty background with nothing in it',
   },
   crest: {
     label: 'Crest on top',
@@ -52,7 +52,7 @@ export function buildImagePrompt({ artPrompt, layout, output, photo }) {
       'Photorealistic graphite pencil drawing to be used as a pyrography (wood burning) reference, horizontal 3:2 landscape page, clean white paper background.',
       `Subject and motifs: ${artPrompt}.`,
       `Composition: ${L.art}.`,
-      'Style: highly detailed, lifelike graphite rendering with smooth tonal shading from soft light grays to deep charcoal blacks, realistic textures (fur, wood grain, metal, foliage), strong form and lighting, and crisp edges on the main subjects. Grayscale only: no color, no colored tints, no paint or ink washes. Keep the empty lettering area pure white paper with no smudges, shading or texture.',
+      'Style: highly detailed, lifelike graphite rendering with smooth tonal shading from soft light grays to deep charcoal blacks, realistic textures (fur, wood grain, metal, fabric), strong form and lighting, and crisp edges on the main subjects. Grayscale only: no color, no colored tints, no paint or ink washes. Keep the empty lettering area pure white paper with no smudges, shading or texture.',
       NO_TEXT,
       'Front-on flat drawing filling the frame edge to edge, not a photo of paper, a sketchbook or a board.',
     ].join(' ');
@@ -95,7 +95,7 @@ const PLAN_SCHEMA = {
 
 const PLANNER_SYSTEM = `You are the art director for Crafted In Honor, which makes personalized awards, certificates and wood-burning (pyrography) recognition pieces.
 Given the user's idea, plan ONE design:
-- artPrompt: a vivid, specific description (60-110 words) of the decorative artwork ONLY. Work the recipient's real profession, interests, achievement and occasion into concrete objects and motifs (e.g. a union carpenter's retirement: a leather tool belt with hammer, tape measure, framing square and pencil, oak leaves and wood grain). Never ask for text, names, numbers or lettering in the art.
+- artPrompt: a vivid, specific description (60-110 words) of the decorative artwork ONLY. Work the recipient's real profession, interests, achievement and occasion into concrete objects and motifs (e.g. a union carpenter's retirement: a leather tool belt with hammer, tape measure, framing square and pencil, and wood grain; a veteran: the flag, stars, an eagle, service insignia shapes, dog tags, medals). Build borders from those objects and simple bands (rope, stripes, stars, rules) — do NOT add generic leaves, vines, flowers, wreaths or floral scrollwork unless the user's idea asks for them or the subject is botanical (a garden, a florist). Never ask for text, names, numbers or lettering in the art.
 - layout: choose the composition that suits the subject: framed (motifs woven into a border, most formal), crest (one hero emblem on top), art-left / art-right (a tall featured illustration), scene (a landscape or workplace scene along the bottom).
 - lettering: classic (Garamond book serif), engraved (Roman capitals), elegant (flowing script name), diploma (Old English blackletter), modern (clean sans), workshop (sturdy slab serif), frontier (western woodtype), personal (handwritten).
 - headColor/textColor: hex colors that read well on the art's light empty area. For pyrography use near-black browns only.

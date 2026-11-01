@@ -4,6 +4,7 @@ let loading = null;
 
 export const CHIPS = [
   { label: 'All', test: () => true },
+  { label: 'Military & veterans', test: (x) => x.c === 'Military & Veterans' },
   { label: 'Retirement', test: (x) => x.o === 'Retirement' },
   { label: 'Years of service', test: (x) => x.o === 'Years of Service' },
   { label: 'Thank you', test: (x) => x.o === 'Appreciation' },
@@ -11,7 +12,6 @@ export const CHIPS = [
   { label: 'Trades', test: (x) => x.c === 'Trades & Construction' },
   { label: 'Healthcare', test: (x) => x.c === 'Healthcare' },
   { label: 'Teachers', test: (x) => x.c === 'Education' },
-  { label: 'Military & veterans', test: (x) => x.c === 'Military & Veterans' },
   { label: 'First responders', test: (x) => x.c === 'Public Service' },
   { label: 'Sports & coaching', test: (x) => x.c === 'Sports & Coaching' },
   { label: 'Hobbies', test: (x) => x.c === 'Hobbies & Interests' },

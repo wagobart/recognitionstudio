@@ -175,20 +175,21 @@ for (const [n, cat, m, pal, extra] of careers) {
 
 // ---------------- Military & veterans ----------------
 const branches = [
-  ['Army', 'crossed rifles motif, a star, olive drab, laurel and a mountain landscape', 'olive drab, gold and black'],
+  ['Army', 'crossed rifles, a five-pointed star, an American flag, dog tags and a rugged mountain landscape', 'olive drab, gold and black'],
   ['Navy', 'a fouled anchor, ship’s wheel, rope border and ocean waves', 'navy blue, gold and white'],
-  ['Marine Corps', 'an eagle, globe and anchor style emblem left without lettering, crossed swords and laurel', 'scarlet, gold and black'],
+  ['Marine Corps', 'an eagle, globe and anchor style emblem left without lettering, crossed swords and a waving American flag', 'scarlet, gold and black'],
   ['Air Force', 'aviator wings, a jet contrail across the sky and stars', 'ultramarine, silver and white'],
   ['Coast Guard', 'a lighthouse, crossed anchors, a cutter on rolling waves and life rings', 'coast guard blue, orange and white'],
-  ['National Guard', 'a minuteman silhouette, laurel, a star and a homeland landscape', 'olive, gold and navy'],
+  ['National Guard', 'a minuteman silhouette, a star, the American flag and a hometown landscape', 'olive, gold and navy'],
   ['Space Force', 'a delta emblem, orbiting satellites, Earth from space and stars', 'deep space blue, silver and white'],
-  ['Veteran (any branch)', 'a folded flag shape, dog tags, laurel, an eagle and a sunrise', 'navy, gold and red'],
+  ['Veteran (any branch)', 'a folded flag, dog tags, a bald eagle and a sunrise over a field of stars', 'navy, gold and red'],
 ];
 for (const [b, m, pal] of branches) {
-  add('Military & Veterans', 'Appreciation', `${b} service appreciation`, `Certificate of appreciation for ${b === 'Veteran (any branch)' ? 'a veteran' : 'a ' + b + ' veteran'} — ${m}, dignified and grateful; ${pal} tones.`, b + ' veteran');
-  add('Military & Veterans', 'Retirement', `${b} retirement`, `Military retirement recognition for a ${b} service member after a full career — ${m}, formal and honorable; ${pal} tones.`, b);
-  add('Military & Veterans', 'Honor', `${b} Veterans Day honor`, `Veterans Day honor for a ${b} veteran — ${m}, with poppies and a quiet, reverent feel; ${pal} tones.`, b + ' veterans day');
-  add('Military & Veterans', 'Completion & Certification', `${b} promotion`, `Promotion recognition for a ${b} service member — ${m}, crisp and official; ${pal} tones.`, b + ' promotion rank');
+  const a = /^[AEIOU]/.test(b) ? 'an' : 'a';
+  add('Military & Veterans', 'Appreciation', `${b} service appreciation`, `Certificate of appreciation for ${b === 'Veteran (any branch)' ? 'a veteran' : a + ' ' + b + ' veteran'} — ${m}, dignified and grateful; ${pal} tones.`, b + ' veteran');
+  add('Military & Veterans', 'Retirement', `${b} retirement`, `Military retirement recognition for ${a} ${b} service member after a full career — ${m}, formal and honorable; ${pal} tones.`, b);
+  add('Military & Veterans', 'Honor', `${b} Veterans Day honor`, `Veterans Day honor for ${a} ${b} veteran — ${m}, with a quiet, reverent Veterans Day feel; ${pal} tones.`, b + ' veterans day');
+  add('Military & Veterans', 'Completion & Certification', `${b} promotion`, `Promotion recognition for ${a} ${b} service member — ${m}, crisp and official; ${pal} tones.`, b + ' promotion rank');
   add('Military & Veterans', 'Family', `${b} military family thank-you`, `Thank-you certificate for the family of a deployed ${b} service member — ${m}, warm with a home and heart motif; ${pal} tones.`, b + ' spouse family');
 }
 const firstResp = [
@@ -198,7 +199,7 @@ const firstResp = [
   ['Search and rescue volunteer', 'a rescue helicopter, mountains, rope and a K9 silhouette', 'rescue orange, slate and white'],
   ['Volunteer fire department', 'a vintage engine, a small-town firehouse and a Maltese cross', 'fire red, gold and cream'],
   ['K9 officer', 'a German shepherd, a badge, paw prints and laurel', 'navy, tan and gold'],
-  ['Honor guard', 'crossed flags, white gloves, a bugle and laurel', 'navy, gold and white'],
+  ['Honor guard', 'crossed flags, white gloves, a bugle and a rifle salute', 'navy, gold and white'],
   ['Chaplain', 'a dove, a badge-shaped shield, an open book and soft light', 'deep blue, gold and ivory'],
 ];
 for (const [t, m, pal] of firstResp) add('Public Service', 'Honor', t, `${t} — ${m}, honorable and heroic; ${pal} tones.`, 'first responder');
@@ -445,7 +446,7 @@ for (const [t, m] of fun) add('Fun & Lighthearted', 'Fun', t, `Lighthearted "${t
 const memorial = [
   ['In loving memory', 'doves, lilies and soft light through clouds'],
   ['Celebration of life', 'sunflowers, a sunrise and butterflies'],
-  ['Memorial for a veteran', 'a folded flag shape, poppies, dog tags and laurel'],
+  ['Memorial for a veteran', 'a folded flag, dog tags, a single red poppy and a sunrise'],
   ['Memorial for a firefighter', 'a Maltese cross, helmet and bagpipes'],
   ['Memorial for a police officer', 'a badge with mourning band, laurel and a thin blue line'],
   ['Memorial for a farmer', 'a red barn at sunset, wheat and an empty tractor seat'],

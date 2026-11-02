@@ -16,3 +16,15 @@
   Cache-Control: no-cache
 /index.html
   Cache-Control: no-cache
+
+# Keep Google on craftedinhonor.com only: the pages.dev copy and preview deploys still work, but are never indexed.
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex
+/img/*
+  Cache-Control: public, max-age=86400
+/og-image.jpg
+  Cache-Control: public, max-age=86400
+/sitemap.xml
+  Cache-Control: public, max-age=3600

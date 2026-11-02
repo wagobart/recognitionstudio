@@ -1,10 +1,10 @@
-import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=14';
-import { LAYOUT_LABELS } from './layout.js?v=14';
-import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=14';
-import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=14';
-import { detectZone } from './zone.js?v=14';
-import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=14';
-import { zoneFor, plainOn, orientOf } from './layout.js?v=14';
+import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=15';
+import { LAYOUT_LABELS } from './layout.js?v=15';
+import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=15';
+import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=15';
+import { detectZone } from './zone.js?v=15';
+import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=15';
+import { zoneFor, plainOn, orientOf } from './layout.js?v=15';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1769,7 +1769,22 @@ async function restoreLast() {
   buildLayoutChips();
   buildPhotoChips();
   setView('start');
-  loadLibrary().catch(() => {});
+  // opened from an idea page: /?idea=<library id>[&make=pattern] — start with that idea filled in
+  const qs = new URLSearchParams(location.search);
+  const deepIdea = qs.get('idea');
+  const deepMake = qs.get('make');
+  if (deepIdea || deepMake) history.replaceState(null, '', location.pathname);
+  if (deepMake === 'pattern' || deepMake === 'certificate') {
+    const r = $(`input[name="output"][value="${deepMake === 'pattern' ? 'pyrography' : 'certificate'}"]`);
+    if (r) r.checked = true;
+  }
+  const lib = loadLibrary().catch(() => null);
+  if (deepIdea) {
+    lib.then((d) => {
+      const x = d && d.find((i) => i.id === deepIdea);
+      if (x) useIdea(x);
+    });
+  }
   try {
     await loadConfig();
   } catch (e) {
@@ -1777,7 +1792,7 @@ async function restoreLast() {
     return;
   }
   if (state.user) {
-    await restoreLast();
+    if (!deepIdea && !deepMake) await restoreLast(); // a link to an idea means "start this", not "reopen my last design"
     resumePendingArt();
   }
 })();

@@ -1,6 +1,6 @@
 // Finds the calm (empty) lettering area in a generated artwork so text never lands on the
 // decoration. AI images rarely leave exactly the space requested, so we measure it.
-import { zonesFor, DESIGN_W, DESIGN_H } from './layout.js?v=14';
+import { zonesFor, DESIGN_W, DESIGN_H } from './layout.js?v=15';
 
 export async function detectZone(url, layout, orient = 'landscape') {
   const portrait = orient === 'portrait';

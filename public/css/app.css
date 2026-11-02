@@ -398,3 +398,7 @@ svg { flex: none; }
 .wash-row { margin: 4px 0 10px; }
 .wash-row .range > span { width: auto; max-width: 128px; line-height: 1.2; }
 .wash-row .hint { margin: -6px 0 0; }
+
+/* links to the public idea pages (crawlable; small, under the Design button) */
+.start-topics { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 18px 0 4px; font-size: 13.5px; color: var(--muted); }
+.start-topics a { color: var(--ink-2); }

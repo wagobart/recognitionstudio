@@ -125,7 +125,7 @@ async def main():
         hid = await ap.evaluate("document.querySelector('.gal-item img').src.replace(location.origin,'')")
         await ap.click('.gal-hide'); await ap.wait_for_timeout(800)
         still = hid in await gallery_keys(up)
-        direct = await ap.evaluate(f"fetch('{hid}',{{credentials:'omit'}}).then(r=>r.status)")
+        direct = await ap.evaluate(f"fetch('{hid}',{{credentials:'omit',cache:'no-store'}}).then(r=>r.status)")
         res['admin'] = dict(hidden_still_listed=still, hidden_art_status_signed_out=direct)
         # designer deletes the shared project → its listing goes
         await pg.evaluate(f"fetch('/api/projects/{p1['id']}',{{method:'DELETE'}})")

@@ -107,7 +107,8 @@ svg { flex: none; }
 /* start view */
 .studio[data-view="start"] .stage-wrap { display: none; }
 .studio[data-view="start"] .panel { padding-bottom: 32px; }
-.start h1 { font-size: 27px; line-height: 1.15; margin: 18px 0 6px; letter-spacing: -0.01em; font-weight: 700; }
+.start-eyebrow { margin: 16px 0 0; color: var(--gold); font-size: 12.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; line-height: 1.35; }
+.start h1 { font-size: 27px; line-height: 1.15; margin: 4px 0 6px; letter-spacing: -0.01em; font-weight: 700; }
 .lede { margin: 0 0 14px; color: var(--ink-2); }
 .lede.small { font-size: 15px; }
 .start textarea { width: 100%; border: 1.5px solid var(--line-2); border-radius: var(--radius); background: var(--surface); padding: 12px 14px; font-size: 17px; line-height: 1.4; resize: vertical; min-height: 118px; box-shadow: var(--shadow); }
@@ -310,7 +311,8 @@ svg { flex: none; }
   .studio[data-view="editor"] ~ .actionbar { left: auto; width: 430px; border-left: 1px solid var(--line); }
   .studio[data-view="start"] { min-height: calc(100dvh - var(--top-h)); display: grid; place-items: center; }
   .studio[data-view="start"] .panel { width: 600px; padding: 20px 0 40px; }
-  .start h1 { font-size: 36px; margin-top: 0; }
+  .start-eyebrow { margin-top: 0; font-size: 13px; }
+  .start h1 { font-size: 36px; margin-top: 4px; }
   .sheet { left: 50%; right: auto; bottom: auto; top: 50%; transform: translate(-50%, -50%); width: min(720px, 92vw); max-height: 86vh; border-radius: 18px; animation: fade .15s; }
   .sheet.narrow { width: 440px; }
   #libSheet { height: 86vh; }

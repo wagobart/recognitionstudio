@@ -42,7 +42,7 @@
   gtag('config', id, { page_location: u.href });
 })();
 </script>
-<link rel="stylesheet" href="/css/app.css?v=17">
+<link rel="stylesheet" href="/css/app.css?v=19">
 </head>
 <body>
 <header class="top">
@@ -87,7 +87,16 @@
       </div>
       <p class="start-photo" id="startPhotoNote" hidden><img id="startPhotoThumb" alt=""><span>Photo added — you’ll choose how it appears after designing.</span><button class="text-btn" id="startPhotoRemove" type="button">Remove</button></p>
       <p class="start-photo start-gal" id="startGalNote" hidden><img id="startGalThumb" alt=""><span>Gallery artwork chosen — free. Your description only shapes the wording; the artwork stays as is.</span><button class="text-btn" id="startGalRemove" type="button">Remove</button></p>
-      <label class="toggle start-noart" id="noArtRow" hidden><input type="checkbox" id="noArtToggle"><span>No artwork — just my photo and words <small>Free and instant. You can add AI artwork later.</small></span></label>
+      <div class="start-noart" id="noArtRow" hidden>
+        <label class="toggle"><input type="checkbox" id="noArtToggle"><span>No artwork — just my photo and words <small>Free and instant. You can add AI artwork later.</small></span></label>
+        <fieldset class="border-pick" id="startBorderRow" hidden>
+          <legend>Border</legend>
+          <label class="seg-opt"><input type="radio" name="startBorder" value="simple" checked><span>Simple</span></label>
+          <label class="seg-opt"><input type="radio" name="startBorder" value="ai"><span>AI-designed</span></label>
+          <label class="seg-opt"><input type="radio" name="startBorder" value="none"><span>None</span></label>
+          <p class="hint" id="startBorderHint">A clean double line, free.</p>
+        </fieldset>
+      </div>
       <fieldset class="output-pick">
         <legend>Make it as a…</legend>
         <label class="pick"><input type="radio" name="output" value="certificate" checked>
@@ -213,13 +222,22 @@
         <div class="sec-body">
           <p class="design-notes" id="designNotes"></p>
           <div id="plainControls" hidden>
-            <p class="design-notes">No artwork — just your photo and words on clean paper.</p>
+            <p class="design-notes" id="plainNote">No artwork — just your photo and words on clean paper.</p>
             <div class="layout-row" id="paperRow"><span class="row-label">Paper</span><div class="chips" id="paperChips">
               <button type="button" class="chip" data-paper="cream">Cream</button><button type="button" class="chip" data-paper="white">White</button>
             </div></div>
-            <label class="toggle"><input type="checkbox" id="borderToggle"><span>Simple border</span></label>
-            <button class="primary-btn wide" id="addArtBtn" type="button">Add AI artwork</button>
           </div>
+          <div id="borderControls" hidden>
+            <div class="layout-row"><span class="row-label">Border</span><div class="seg" id="borderSeg" role="radiogroup" aria-label="Border">
+              <button type="button" role="radio" data-border="none">None</button><button type="button" role="radio" data-border="simple">Simple</button><button type="button" role="radio" data-border="ai">AI-designed</button>
+            </div></div>
+            <div class="ai-border-box" id="aiBorderBox" hidden>
+              <label class="fld"><span>What should the border feature?</span><input type="text" id="borderThemeInput" maxlength="200" placeholder="e.g. paw prints and a leather collar"></label>
+              <button class="primary-btn wide" id="aiBorderBtn" type="button">Design my border <small>uses 1 AI design</small></button>
+              <p class="hint">Your photo and words stay exactly where they are. You can switch back any time — every border is kept.</p>
+            </div>
+          </div>
+          <button class="primary-btn wide" id="addArtBtn" type="button" hidden>Add full AI artwork</button>
           <div class="versions" id="versions" hidden></div>
           <div class="wash-row" id="washRow">
             <label class="range"><span>Fade art behind the words</span><input type="range" id="washRange" min="0" max="0.9" step="0.05" value="0"><output id="washOut">Off</output></label>
@@ -349,6 +367,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script type="module" src="/js/app.js?v=17"></script>
+<script type="module" src="/js/app.js?v=19"></script>
 </body>
 </html>

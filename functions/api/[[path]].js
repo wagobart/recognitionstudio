@@ -237,6 +237,11 @@ route('POST', '/api/art', async ({ env, request, user }) => {
   const [aw, ah] = orient === 'portrait' ? [1024, 1536] : [1536, 1024];
   const shape = orient === 'portrait' ? { orient } : {};
   let artPrompt = clean(body.artPrompt, 1500) || clean(body.idea, 1500);
+  // border-only frame: the user's short motif line, else motifs drawn from the design's theme
+  if (layout === 'border') {
+    const theme = clean(body.borderTheme, 300);
+    artPrompt = theme || (artPrompt ? `small motifs drawn from this theme: ${artPrompt}` : 'a refined classic band with graceful corner ornaments');
+  }
   const tweak = clean(body.tweak, 400);
   if (!artPrompt) return err('Missing design description.');
   if (tweak) artPrompt += `. Requested change: ${tweak}`;
@@ -249,7 +254,7 @@ route('POST', '/api/art', async ({ env, request, user }) => {
     if (!obj) return err('That photo could not be found. Please add it again.', 404);
     ref = { bytes: new Uint8Array(await obj.arrayBuffer()), contentType: obj.httpMetadata?.contentType || 'image/jpeg' };
   }
-  const prompt = buildImagePrompt({ artPrompt, layout, output, orient, photo: ref ? { subject: clean(body.photoSubject, 60) } : null });
+  const prompt = buildImagePrompt({ artPrompt, layout, output, orient, paper: body.paper === 'white' ? 'white' : 'cream', photo: ref ? { subject: clean(body.photoSubject, 60) } : null });
   const id = uid('a_');
   const key = `art/${user.id}/${id}`;
   const L = limits(env);

@@ -1,8 +1,8 @@
 // Lettering layout engine. Produces positioned text items in a 1500 x 1000 design space
 // (landscape) or 1000 x 1500 (portrait).
 // The SVG preview, PNG export and PDF export all draw from this one result.
-import { STYLES, cssFamily } from './fonts.js?v=17';
-import { photoAspect, photoLayerOn } from './photo.js?v=17';
+import { STYLES, cssFamily } from './fonts.js?v=19';
+import { photoAspect, photoLayerOn } from './photo.js?v=19';
 
 export const DESIGN_W = 1500; // landscape design space (portrait swaps the two)
 export const DESIGN_H = 1000;
@@ -18,6 +18,7 @@ export const ZONES = {
   'art-left': { x: 590, y: 125, w: 790, h: 750 },
   'art-right': { x: 120, y: 125, w: 790, h: 750 },
   scene: { x: 190, y: 110, w: 1120, h: 520 },
+  border: { x: 140, y: 125, w: 1220, h: 750 },
 };
 // same compositions on a tall page (1000 x 1500)
 export const ZONES_PORTRAIT = {
@@ -26,6 +27,7 @@ export const ZONES_PORTRAIT = {
   'art-left': { x: 340, y: 140, w: 580, h: 1220 },
   'art-right': { x: 80, y: 140, w: 580, h: 1220 },
   scene: { x: 120, y: 120, w: 760, h: 760 },
+  border: { x: 125, y: 140, w: 750, h: 1220 },
 };
 export const zonesFor = (orient) => (orient === 'portrait' ? ZONES_PORTRAIT : ZONES);
 
@@ -35,7 +37,10 @@ export const LAYOUT_LABELS = {
   'art-left': 'Art on the left',
   'art-right': 'Art on the right',
   scene: 'Scene along bottom',
+  border: 'Border only',
 };
+// an AI-drawn border around a photo + words design (the AI version of the simple border)
+export const aiBorderOn = (p) => p?.art?.layout === 'border';
 
 let ctx;
 function measure(text, fontKey, size, track = 0) {
@@ -114,7 +119,9 @@ export function splitForPhoto(project, full) {
   // on a plain design with a border, a full-size photo stops inside the border
   // usable page inside the edge (the photo may grow over the artwork, but not off the paper)
   const { W: DW, H: DH } = dims(project);
-  const PAGE = plainOn(project) && plainPaper(project).border ? { x: 78, y: 72, w: DW - 156, h: DH - 144 } : { x: 60, y: 50, w: DW - 120, h: DH - 100 };
+  // inside an AI border the photo may grow to fill the open area, but never over the border itself
+  const PAGE = aiBorderOn(project) ? (project.art.zone || zonesFor(orientOf(project)).border)
+    : plainOn(project) && plainPaper(project).border ? { x: 78, y: 72, w: DW - 156, h: DH - 144 } : { x: 60, y: 50, w: DW - 120, h: DH - 100 };
   const minTextW = DW * 0.32, minTextH = DH * 0.3;
 
   if (ph.place === 'top') {

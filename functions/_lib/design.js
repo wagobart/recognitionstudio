@@ -29,7 +29,16 @@ export const LAYOUTS = {
     art: 'a panoramic themed scene along the bottom third of the page that fades softly upward, plus a thin border around the edges. The upper 62% of the page (inside the border) is a plain, smooth, completely empty background like open sky or blank paper',
     portrait: 'a themed scene filling the bottom 40% of the tall page that fades softly upward, plus a thin border around the edges. The upper 58% of the page (inside the border) is a plain, smooth, completely empty background like open sky or blank paper',
   },
+  // "AI border" for photo + words designs: decoration only at the edges, the whole inside left for the
+  // photo and lettering (same open area as the app-drawn simple border). Never chosen by the planner.
+  border: {
+    label: 'Border only',
+    art: 'ONLY a decorative border band running around all four edges of the page, about 7% of the page width deep, with slightly richer accents in the four corners. Everything inside the border (about 84% of the width and 78% of the height, centered) is plain, smooth, completely empty paper with nothing in it',
+    portrait: 'ONLY a decorative border band running around all four edges of the tall page, about 8% of the page width deep, with slightly richer accents in the four corners. Everything inside the border (about 78% of the width and 84% of the height, centered) is plain, smooth, completely empty paper with nothing in it',
+  },
 };
+// compositions the planner may choose (the border-only frame is the user's choice)
+export const PLAN_LAYOUTS = Object.keys(LAYOUTS).filter((k) => k !== 'border');
 
 export const LETTERING = ['classic', 'engraved', 'elegant', 'diploma', 'modern', 'workshop', 'frontier', 'personal'];
 
@@ -48,21 +57,28 @@ export function photoInstruction(layout, subject) {
     'art-right': 'as the tall featured illustration in the right third',
     scene: 'as the centerpiece of the scene along the bottom',
     framed: 'woven prominently into the decorative border',
+    border: 'as a small featured medallion in the middle of the top border band',
   }[layout] || 'prominently in the artwork';
   return `Feature ${what} ${where}, faithfully matching its real appearance, likeness, markings, colors and proportions. Only the subject comes from the photo: do not copy its background, and do not let the subject enter the empty lettering area.`;
 }
 
-export function buildImagePrompt({ artPrompt, layout, output, photo, orient }) {
+export function buildImagePrompt({ artPrompt, layout, output, photo, orient, paper }) {
   const L = LAYOUTS[layout] || LAYOUTS.framed;
   const portrait = orient === 'portrait';
   const page = portrait ? 'vertical 2:3 portrait page (taller than wide)' : 'horizontal 3:2 landscape page';
   const comp = portrait ? L.portrait : L.art;
+  const border = layout === 'border';
   if (photo) artPrompt = `${artPrompt}. ${photoInstruction(layout, photo.subject)}`;
+  // a border-only frame is built from small repeated motifs; everything else has one focal subject
+  const subjectLine = border ? `Border motifs: ${artPrompt}.` : null;
+  const restraint = border
+    ? 'Build the band from a few small, well-drawn motifs repeated or linked along the edges (or a simple band such as rope, stripes or rules), with slightly richer accents in the corners. No large focal subject, no central emblem, nothing inside the border.'
+    : 'Keep it uncluttered: one clear focal subject with only a few supporting details, never a collage of symbols.';
   if (output === 'pyrography') {
     return [
       `Photorealistic graphite pencil drawing to be used as a pyrography (wood burning) reference, ${page}, clean white paper background.`,
-      `Subject and motifs: ${artPrompt}.`,
-      'Keep it uncluttered: one clear focal subject with only a few supporting details, never a collage of symbols.',
+      subjectLine || `Subject and motifs: ${artPrompt}.`,
+      restraint,
       `Composition: ${comp}.`,
       KEEP_EMPTY,
       'Style: highly detailed, lifelike graphite rendering with smooth tonal shading from soft light grays to deep charcoal blacks, realistic textures (fur, wood grain, metal, fabric), strong form and lighting, and crisp edges on the main subjects. Grayscale only: no color, no colored tints, no paint or ink washes. Keep the empty lettering area pure white paper with no smudges, shading or texture.',
@@ -71,11 +87,12 @@ export function buildImagePrompt({ artPrompt, layout, output, photo, orient }) {
     ].join(' ');
   }
   return [
-    `Printable award certificate background artwork, ${page}, premium and professional.`,
-    `Theme and motifs: ${artPrompt}.`,
-    'Keep it uncluttered: one clear focal subject with only a few supporting details, never a collage of symbols.',
+    `Printable award certificate ${border ? 'border' : 'background'} artwork, ${page}, premium and professional.`,
+    subjectLine || `Theme and motifs: ${artPrompt}.`,
+    restraint,
     `Composition: ${comp}.`,
     KEEP_EMPTY,
+    ...(border ? [`The paper inside the border is plain ${paper === 'white' ? 'bright white' : 'soft warm cream'}, even in tone, with no texture, vignette or pattern.`] : []),
     'Rich, crisp, print-quality illustration with tasteful, harmonious colors; the empty area must be light and even in tone so dark lettering is easy to read on it.',
     NO_TEXT,
     'Front-on flat artwork filling the frame edge to edge, not a photo or mockup of paper.',
@@ -87,11 +104,12 @@ export function buildImagePrompt({ artPrompt, layout, output, photo, orient }) {
 const PLAN_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['projectTitle', 'layout', 'artPrompt', 'lettering', 'headColor', 'textColor', 'designNotes', 'photoSubject', 'wording'],
+  required: ['projectTitle', 'layout', 'artPrompt', 'borderMotifs', 'lettering', 'headColor', 'textColor', 'designNotes', 'photoSubject', 'wording'],
   properties: {
     projectTitle: { type: 'string' },
-    layout: { type: 'string', enum: Object.keys(LAYOUTS) },
+    layout: { type: 'string', enum: PLAN_LAYOUTS },
     artPrompt: { type: 'string' },
+    borderMotifs: { type: 'string' },
     lettering: { type: 'string', enum: LETTERING },
     headColor: { type: 'string' },
     textColor: { type: 'string' },
@@ -111,6 +129,7 @@ const PLAN_SCHEMA = {
 const PLANNER_SYSTEM = `You are the art director for Crafted In Honor, which makes personalized awards, certificates and wood-burning (pyrography) recognition pieces.
 Given the user's idea, plan ONE design:
 - artPrompt: a vivid, specific description (60-110 words) of the decorative artwork ONLY. Work the recipient's real profession, interests, achievement and occasion into concrete objects and motifs (e.g. a union carpenter's retirement: a well-worn leather tool belt holding a hammer and tape measure, over warm wood grain; a veteran: a bald eagle in flight over a quiet sunrise). Restraint matters: choose ONE focal subject and at most two supporting motifs. The focal subject goes where the chosen layout puts artwork (woven into the border and corners, the emblem at the top, the side panel, or the scene along the bottom) — never in the middle of the page, which is reserved for the lettering; say where it goes. When a theme has many familiar symbols (a flag, stars, an eagle, insignia, dog tags, medals, anchors), pick the one or two that suit this person best — never pile them all in. Fewer, larger, well-drawn elements with breathing room look more dignified than a collage. Build borders from those motifs or a simple band (rope, stripes, a row of stars, plain rules) — do NOT add generic leaves, vines, flowers, wreaths or floral scrollwork unless the user's idea asks for them or the subject is botanical (a garden, a florist). Never ask for text, names, numbers or lettering in the art.
+- borderMotifs: 3-10 plain words naming small motifs for an optional decorative border that could frame a photo and the words instead of full artwork (e.g. "paw prints and a leather collar", "hammers, tape measures and wood grain", "rope and small anchors"). Same rules: from the subject's own world, no generic leaves or flowers unless asked, no text.
 - layout: choose the composition that suits the subject: framed (motifs woven into a border, most formal), crest (one hero emblem on top), art-left / art-right (a tall featured illustration), scene (a landscape or workplace scene along the bottom).
 - lettering: classic (Garamond book serif), engraved (Roman capitals), elegant (flowing script name), diploma (Old English blackletter), modern (clean sans), workshop (sturdy slab serif), frontier (western woodtype), personal (handwritten).
 - headColor/textColor: hex colors that read well on the art's light empty area. For pyrography use near-black browns only.
@@ -166,7 +185,8 @@ const HEX = /^#[0-9a-f]{6}$/i;
 function sanitizePlan(p, output) {
   const fallback = localPlan({ idea: '', output });
   const out = { ...fallback, ...p };
-  if (!LAYOUTS[out.layout]) out.layout = 'framed';
+  if (!PLAN_LAYOUTS.includes(out.layout)) out.layout = 'framed';
+  out.borderMotifs = String(out.borderMotifs || '').slice(0, 200);
   if (!LETTERING.includes(out.lettering)) out.lettering = 'classic';
   if (!HEX.test(out.headColor)) out.headColor = fallback.headColor;
   if (!HEX.test(out.textColor)) out.textColor = fallback.textColor;
@@ -219,6 +239,7 @@ export function localPlan({ idea = '', output = 'certificate', photo = false }) 
     projectTitle: photoOnly ? `${occ.title} – photo` : (occ.title + (subject ? ' – ' + subject.split(/[,.]/)[0] : '')).slice(0, 70),
     layout: hint.layout,
     artPrompt: `Decorative artwork celebrating ${subject}, using concrete, recognizable objects, tools and symbols from that person's work, interests and occasion`,
+    borderMotifs: '',
     lettering: hint.lettering,
     headColor: pyro ? '#1f1610' : hint.head,
     textColor: pyro ? '#1f1610' : hint.text,

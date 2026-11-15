@@ -1,4 +1,4 @@
-"""Designs with no artwork — just a photo and words (test mode).
+"""Designs with no artwork (Border: None/Simple seg replaced the "Simple border" checkbox 2026-11-14) — just a photo and words (test mode).
 iPhone 15 emulation: photo + "No artwork" on the start screen, wood-burning → no artwork API call,
 photo at 150%, PDF contains the name. Desktop: same as a certificate, paper/border controls,
 "Add AI artwork", then "Use no artwork" back again, PDF.
@@ -41,9 +41,9 @@ async def main():
             if dev=='desktop':
                 await pg.evaluate("['secWording','secPhoto','secLettering'].forEach(i=>document.getElementById(i).open=false); document.getElementById('secArt').open=true")
                 await pg.wait_for_timeout(300)
-                await pg.click("#paperChips .chip[data-paper=white]"); await pg.click('#borderToggle'); await pg.wait_for_timeout(400)
+                await pg.click("#paperChips .chip[data-paper=white]"); await pg.click('#borderSeg button[data-border=none]'); await pg.wait_for_timeout(400)
                 await pg.screenshot(path=O+'desktop-2-white-noborder.png')
-                await pg.click('#borderToggle'); await pg.click("#paperChips .chip[data-paper=cream]")
+                await pg.click('#borderSeg button[data-border=simple]'); await pg.click("#paperChips .chip[data-paper=cream]")
                 await pg.click('#addArtBtn')
                 await pg.wait_for_function("window.__rs.state.project.art && !window.__rs.state.busyArt", timeout=60000)
                 with_art = await pg.evaluate("[window.__rs.state.project.plainBg, document.getElementById('plainControls').hidden, document.getElementById('noArtBtn').hidden]")

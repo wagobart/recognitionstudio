@@ -347,6 +347,18 @@ svg { flex: none; }
 .start-noart { margin: 10px 0 0; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 #plainControls { margin-bottom: 8px; }
 #plainControls .toggle { margin: 4px 0 14px; }
+.start-noart .toggle { margin: 0; }
+.border-pick { border: 0; padding: 0; margin: 10px 0 0 32px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.border-pick legend { float: left; font-size: 14px; font-weight: 600; color: var(--ink-2); margin-right: 4px; padding: 0; }
+.border-pick .hint { flex-basis: 100%; margin: 2px 0 0; }
+.border-pick .seg-opt span { padding: 6px 12px; }
+@media (max-width: 480px) { .border-pick { margin-left: 0; gap: 5px; } .border-pick .seg-opt span { padding: 6px 10px; font-size: 13.5px; } }
+#borderControls { margin-bottom: 12px; }
+#borderSeg { flex: 1; }
+.ai-border-box { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.ai-border-box .fld { margin-top: 0; }
+.ai-border-box input[type=text] { width: 100%; }
+#aiBorderBtn small, #addArtBtn small { font-weight: 500; opacity: .8; margin-left: 4px; }
 #noArtBtn { display: block; margin-top: 6px; }
 
 /* Shared examples, a fold-out under each My projects section */

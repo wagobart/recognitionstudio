@@ -1,10 +1,10 @@
-import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=17';
-import { LAYOUT_LABELS } from './layout.js?v=17';
-import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=17';
-import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=17';
-import { detectZone } from './zone.js?v=17';
-import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=17';
-import { zoneFor, plainOn, orientOf } from './layout.js?v=17';
+import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=19';
+import { LAYOUT_LABELS } from './layout.js?v=19';
+import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=19';
+import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=19';
+import { detectZone } from './zone.js?v=19';
+import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=19';
+import { zoneFor, plainOn, orientOf, aiBorderOn } from './layout.js?v=19';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -210,7 +210,8 @@ function updateSummaries() {
   const st = STYLES[p.style.lettering];
   $('#letteringSummary').textContent = `${st.label} lettering · ${Math.round(p.style.scale * 100)}%`;
   $('#artSummary').textContent = plainOn(p)
-    ? `No artwork · ${p.output === 'pyrography' ? 'wood-burning pattern' : 'certificate'}`
+    ? `${p.style.border === false ? 'No border' : 'Simple border'} · ${p.output === 'pyrography' ? 'wood-burning pattern' : 'certificate'}`
+    : aiBorderOn(p) ? `AI border · ${p.output === 'pyrography' ? 'wood-burning pattern' : 'certificate'}`
     : p.art ? `${LAYOUT_LABELS[p.art.layout] || 'Custom'}${orientOf(p) === 'portrait' ? ' · tall page' : ''} · ${p.output === 'pyrography' ? 'wood-burning pattern' : 'color certificate'}` : 'Being created…';
 }
 
@@ -400,15 +401,18 @@ function syncArtSection() {
   }
   const plain = plainOn(p);
   $('#plainControls').hidden = !plain;
+  $('#addArtBtn').hidden = !plain;
   $('#addArtBtn').disabled = busy;
   $('#paperRow').hidden = p.output === 'pyrography'; // wood-burning is always plain white
   $$('#paperChips .chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.paper === (p.style.paper === 'white' ? 'white' : 'cream'))));
-  $('#borderToggle').checked = p.style.border !== false;
+  syncBorderControls(p, plain, busy);
   // AI-artwork controls only make sense when there is artwork
   for (const el of [$('#tweakInput').closest('.fld'), $('#redrawBtn').closest('.btn-row'), $('#layoutChips').closest('.layout-row'), $('#artPromptInput').closest('details'), $('#designNotes')])
     el.hidden = plain;
-  $('#noArtBtn').hidden = plain || busy;
-  if ($('#washRow')) $('#washRow').hidden = plain || !p.art;
+  // an AI border: the full-artwork description and notes don't describe it
+  if (aiBorderOn(p)) { $('#artPromptInput').closest('details').hidden = true; $('#designNotes').hidden = true; }
+  $('#noArtBtn').hidden = plain || aiBorderOn(p) || busy; // the Border choice covers it there
+  if ($('#washRow')) $('#washRow').hidden = plain || !p.art || aiBorderOn(p);
   $('#galleryPickBtn').hidden = busy;
   const shareable = !!shareableArtOf(p);
   $('#shareRow').hidden = !shareable;
@@ -497,9 +501,60 @@ $('#noArtBtn').addEventListener('click', () => {
   afterArtChange();
   toast('No artwork — just your photo and words. Your artwork is still under versions.', { ms: 4200 });
 });
-$('#addArtBtn').addEventListener('click', () => generateArt());
+$('#addArtBtn').addEventListener('click', () => generateArt({ layout: state.project.plan.layout === 'border' ? 'framed' : undefined }));
 $$('#paperChips .chip').forEach((b) => b.addEventListener('click', () => { state.project.style.paper = b.dataset.paper; afterArtChange(); }));
-$('#borderToggle').addEventListener('change', (e) => { state.project.style.border = e.target.checked; afterArtChange(); });
+
+// ---- Border for photo + words designs: none · simple (app-drawn, free) · AI-designed (1 AI design) ----
+// AI borders are ordinary artwork with layout 'border', so they are kept under versions, get a
+// wood-burning version for free, and switching back to Simple/None never throws one away.
+const borderKind = (p) => (aiBorderOn(p) ? 'ai' : plainOn(p) ? (p.style.border === false ? 'none' : 'simple') : null);
+const borderTheme = (p) => (typeof p.borderTheme === 'string' ? p.borderTheme : p.plan?.borderMotifs || '');
+// the newest AI border already made for this output and page shape (reused for free)
+const lastAiBorder = (p) => [...(p.artHistory || [])].reverse()
+  .find((a) => a.layout === 'border' && sameOutput(a, p.output) && (a.orient === 'portrait' ? 'portrait' : 'landscape') === orientOf(p));
+function syncBorderControls(p, plain, busy) {
+  const box = $('#borderControls');
+  if (!box) return; // a page cached from before this existed
+  const kind = borderKind(p);
+  box.hidden = !kind;
+  if (!kind) { state.borderAsk = false; return; }
+  const shown = state.borderAsk ? 'ai' : kind;
+  $$('#borderSeg button').forEach((b) => { b.setAttribute('aria-checked', String(b.dataset.border === shown)); b.disabled = busy; });
+  const ask = state.borderAsk && kind !== 'ai';
+  $('#aiBorderBox').hidden = !ask;
+  if (ask && document.activeElement !== $('#borderThemeInput')) $('#borderThemeInput').value = borderTheme(p);
+  $('#aiBorderBtn').disabled = busy;
+  $('#plainNote').hidden = true;
+}
+$$('#borderSeg button').forEach((b) => b.addEventListener('click', () => {
+  const p = state.project;
+  if (!p || state.busyArt) return;
+  const to = b.dataset.border;
+  if (to === 'ai') {
+    if (aiBorderOn(p)) return;
+    const prev = lastAiBorder(p);
+    if (prev) { // already made one: switch back to it, free
+      state.borderAsk = false;
+      useArtVersion(p, prev);
+      afterArtChange();
+      toast('AI border ✓ Want a different one? Use “New variation” or “Change something”.', { ms: 4200 });
+      return;
+    }
+    state.borderAsk = true;
+    syncArtSection();
+    $('#borderThemeInput').focus({ preventScroll: true });
+    return;
+  }
+  state.borderAsk = false;
+  if (aiBorderOn(p)) { p.plainBg = true; p.art = null; setArtStatus(null); } // the AI border stays under versions
+  p.style.border = to === 'simple';
+  afterArtChange();
+}));
+$('#borderThemeInput')?.addEventListener('input', (e) => { state.project.borderTheme = e.target.value; markDirty(); });
+$('#aiBorderBtn')?.addEventListener('click', () => {
+  state.borderAsk = false;
+  generateArt({ layout: 'border' });
+});
 
 // The two versions of a design are always the identical artwork — never a fresh AI drawing.
 // Certificate → wood-burning: graphite conversion of the same image. Wood-burning → certificate: the
@@ -595,11 +650,13 @@ async function generateArt({ tweak = '', layout, output, seed, withPhoto, orient
   const targetOutput = output || p.output;
   const targetOrient = orient || orientOf(p);
   const targetLayout = layout || p.art?.layout || p.plan.layout;
+  const keepShowing = !!p.art || plainOn(p); // a photo + words design stays visible while its border paints
   syncArtSection();
   const label = orient && orient !== orientOf(p) ? (orient === 'portrait' ? 'Redrawing as a tall page…' : 'Redrawing as a wide page…')
-    : output && output !== p.output ? (output === 'pyrography' ? 'Drawing the wood-burning version…' : 'Painting the color version…') : 'Painting your artwork…';
+    : output && output !== p.output ? (output === 'pyrography' ? 'Drawing the wood-burning version…' : 'Painting the color version…')
+    : targetLayout === 'border' ? 'Designing your border…' : 'Painting your artwork…';
   setArtStatus('busy', `<div class="spinner"></div><span>${label} You can keep editing.</span>`);
-  if (!p.art) stageOverlay('busy', progressHtml(2));
+  if (!keepShowing) stageOverlay('busy', progressHtml(2));
   else stageOverlay('busy', `<div class="shimmer"></div><div class="spinner"></div><h3>${label}</h3><p>Your current design stays until the new one is ready.</p>`);
   const since = Date.now() - 5000;
   try { localStorage.setItem(PENDING_KEY, JSON.stringify({ id: p.id, since })); } catch {}
@@ -610,6 +667,7 @@ async function generateArt({ tweak = '', layout, output, seed, withPhoto, orient
         method: 'POST',
         body: {
           idea: p.idea, artPrompt: p.plan.artPrompt, layout: targetLayout, output: targetOutput, orient: targetOrient, tweak, seed,
+          ...(targetLayout === 'border' ? { borderTheme: borderTheme(p), paper: p.style.paper === 'white' ? 'white' : 'cream' } : {}),
           // "Paint into art": every redraw keeps using the photo as the reference
           ...((withPhoto || p.photo?.mode === 'ai') && p.photo?.key ? { photoKey: p.photo.key, photoSubject: p.photo.subject || '' } : {}),
         },
@@ -634,13 +692,14 @@ async function generateArt({ tweak = '', layout, output, seed, withPhoto, orient
     setArtStatus(null);
     const shared = sharedNow(p) && !p._toldShared;
     if (shared) p._toldShared = true;
-    toast((p.artHistory.length > 1 ? 'New artwork ready ✓  Earlier versions are under Artwork.' : 'Artwork ready ✓')
+    toast((art.layout === 'border' ? 'AI border ready ✓  Simple and None are still under Artwork → Border.'
+      : p.artHistory.length > 1 ? 'New artwork ready ✓  Earlier versions are under Artwork.' : 'Artwork ready ✓')
       + (shared ? ' It’s shared in the public gallery (artwork only) — turn that off under Artwork.' : ''), { ms: shared ? 5200 : 3200 });
     refreshUsage();
   } catch (e) {
     if (e.status === 401) return needAuth(() => generateArt({ tweak, layout, output, seed, orient }));
     const msg = e.message || 'The artwork could not be created.';
-    if (!p.art) stageOverlay('err', `<h3>Artwork wasn’t created</h3><p>${msg}</p><button class="primary-btn small" id="retryArt">Try again</button>`);
+    if (!keepShowing) stageOverlay('err', `<h3>Artwork wasn’t created</h3><p>${msg}</p><button class="primary-btn small" id="retryArt">Try again</button>`);
     else stageOverlay(null);
     setArtStatus('err', `<span>${msg}</span><button class="ghost-btn small" id="retryArt2">Retry</button>`);
     const retry = () => generateArt({ tweak, layout, output, seed, orient });
@@ -850,7 +909,7 @@ $('#photoPaintBtn').addEventListener('click', () => {
   const p = state.project;
   const cur = p.art?.layout || p.plan.layout;
   // a decorative border leaves no room for a portrait: give the subject a featured spot instead
-  generateArt({ withPhoto: true, layout: cur === 'framed' ? 'crest' : cur });
+  generateArt({ withPhoto: true, layout: cur === 'framed' || cur === 'border' ? 'crest' : cur });
 });
 
 function syncPhotoOutputs() {
@@ -913,6 +972,9 @@ function clearStartPhoto(revoke = true) {
   $('#startPhotoNote').hidden = true;
   $('#noArtRow').hidden = true;
   $('#noArtToggle').checked = false;
+  const simple = $('input[name="startBorder"][value="simple"]');
+  if (simple) simple.checked = true; // a paid choice never carries over to the next design
+  syncStartBorder();
   $('#startPhotoLabel').textContent = 'Add a photo';
 }
 $('#startPhotoInput').addEventListener('change', async (e) => {
@@ -932,6 +994,16 @@ $('#startPhotoInput').addEventListener('change', async (e) => {
   }
 });
 $('#startPhotoRemove').addEventListener('click', () => clearStartPhoto());
+const START_BORDER_HINT = { simple: 'A clean double line, free.', ai: 'AI designs a border to suit your photo and words — uses 1 AI design.', none: 'Just paper, free.' };
+const startBorder = () => $('input[name="startBorder"]:checked')?.value || 'simple';
+function syncStartBorder() {
+  const row = $('#startBorderRow');
+  if (!row) return;
+  row.hidden = !$('#noArtToggle').checked;
+  $('#startBorderHint').textContent = START_BORDER_HINT[startBorder()];
+}
+$('#noArtToggle').addEventListener('change', syncStartBorder);
+$$('input[name="startBorder"]').forEach((r) => r.addEventListener('change', syncStartBorder));
 
 // ---------------- start / design ----------------
 function selectedOutput() {
@@ -967,7 +1039,9 @@ async function startDesign() {
   render();
   const pend = state.pendingPhoto;
   const noArt = !!pend && !gal && $('#noArtToggle').checked;
+  const border = noArt ? startBorder() : null;
   p.plainBg = noArt;
+  if (border === 'none') p.style.border = false;
   if (pend) clearStartPhoto(false);
   stageOverlay('busy', progressHtml(pend ? 0 : 1, !!pend));
   // the photo goes up first so the planner can look at it
@@ -1011,6 +1085,12 @@ async function startDesign() {
     toast('Ready ✓ Gallery artwork with your wording — edit anything.', { ms: 3600 });
     return;
   }
+  if (p.plainBg && border === 'ai') {
+    // photo + words with an AI-designed border: the plain design shows while the border paints
+    stageOverlay(null);
+    afterArtChange();
+    return generateArt({ layout: 'border' });
+  }
   if (p.plainBg) {
     // just the photo and words: nothing to paint
     stageOverlay(null);
@@ -1025,7 +1105,7 @@ async function startDesign() {
 function applyPlan(plan) {
   const p = state.project;
   p.title = plan.projectTitle || p.title;
-  p.plan = { layout: plan.layout, artPrompt: plan.artPrompt, designNotes: plan.designNotes, source: plan.source || '' };
+  p.plan = { layout: plan.layout, artPrompt: plan.artPrompt, borderMotifs: plan.borderMotifs || '', designNotes: plan.designNotes, source: plan.source || '' };
   if (p.photo && !p.photo.subject && plan.photoSubject) p.photo.subject = plan.photoSubject;
   // never overwrite anything the user already typed
   for (const f of TEXT_FIELDS) if (!p.text[f] && plan.wording?.[f]) p.text[f] = plan.wording[f];

@@ -79,6 +79,11 @@ export function mockArtSvg({ idea = '', layout = 'framed', output = 'certificate
     parts.push(vine(150, 90, W - 150, 90, Math.round(W / 110)), vine(150, H - 90, W - 150, H - 90, Math.round(W / 110)));
     parts.push(vine(90, 150, 90, H - 150, Math.round(H / 110)), vine(W - 90, 150, W - 90, H - 150, Math.round(H / 110)));
     parts.push(corners());
+  } else if (layout === 'border') {
+    // border band only, tight to the edges; the whole inside stays empty
+    parts.push(vine(130, 72, W - 130, 72, Math.round(W / 90)), vine(130, H - 72, W - 130, H - 72, Math.round(W / 90)));
+    parts.push(vine(72, 130, 72, H - 130, Math.round(H / 90)), vine(W - 72, 130, W - 72, H - 130, Math.round(H / 90)));
+    for (const [x, y] of [[78, 78], [W - 78, 78], [78, H - 78], [W - 78, H - 78]]) parts.push(rosette(x, y, 30));
   } else if (layout === 'crest') {
     parts.push(corners());
     parts.push(rosette(W / 2, portrait ? 240 : 150, portrait ? 130 : 88));

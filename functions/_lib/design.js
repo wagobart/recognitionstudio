@@ -33,8 +33,8 @@ export const LAYOUTS = {
   // photo and lettering (same open area as the app-drawn simple border). Never chosen by the planner.
   border: {
     label: 'Border only',
-    art: 'ONLY a decorative border band running around all four edges of the page, about 7% of the page width deep, with slightly richer accents in the four corners. Everything inside the border (about 84% of the width and 78% of the height, centered) is plain, smooth, completely empty paper with nothing in it',
-    portrait: 'ONLY a decorative border band running around all four edges of the tall page, about 8% of the page width deep, with slightly richer accents in the four corners. Everything inside the border (about 78% of the width and 84% of the height, centered) is plain, smooth, completely empty paper with nothing in it',
+    art: 'ONLY a decorative border band running around all four edges of the page, about 7% of the page width deep, with each corner marked by a slightly larger version of the same motif. Everything inside the border (about 84% of the width and 78% of the height, centered) is plain, smooth, completely empty paper with nothing in it',
+    portrait: 'ONLY a decorative border band running around all four edges of the tall page, about 8% of the page width deep, with each corner marked by a slightly larger version of the same motif. Everything inside the border (about 78% of the width and 84% of the height, centered) is plain, smooth, completely empty paper with nothing in it',
   },
 };
 // compositions the planner may choose (the border-only frame is the user's choice)
@@ -72,7 +72,7 @@ export function buildImagePrompt({ artPrompt, layout, output, photo, orient, pap
   // a border-only frame is built from small repeated motifs; everything else has one focal subject
   const subjectLine = border ? `Border motifs: ${artPrompt}.` : null;
   const restraint = border
-    ? 'Build the band from a few small, well-drawn motifs repeated or linked along the edges (or a simple band such as rope, stripes or rules), with slightly richer accents in the corners. No large focal subject, no central emblem, nothing inside the border.'
+    ? 'Build the band ONLY from the motifs named above, repeated or linked along the edges, joined by a plain line, rope or simple rule; each corner is a slightly larger version of one of those same motifs. Do not add anything that was not named: no leaves, vines, branches, flowers, wreaths, laurel, scrollwork, flourishes or filler ornament. No large focal subject, no central emblem, nothing inside the border.'
     : 'Keep it uncluttered: one clear focal subject with only a few supporting details, never a collage of symbols.';
   if (output === 'pyrography') {
     return [

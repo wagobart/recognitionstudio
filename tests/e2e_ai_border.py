@@ -91,7 +91,7 @@ async def main():
         await pg.click('#aiBorderBtn')
         await pg.wait_for_function("window.__rs.state.project.artHistory.length === 2", timeout=60000); await idle(pg)
         last = arts[-1] if arts else {}
-        d['redescribed'] = [last.get('req', {}).get('layout'), last.get('req', {}).get('borderTheme'), 'Border motifs: rope and small anchors' in last.get('art', {}).get('prompt', ''),
+        d['redescribed'] = [last.get('req', {}).get('layout'), last.get('req', {}).get('borderTheme'), 'The border: rope and small anchors' in last.get('art', {}).get('prompt', ''),
                             await pg.evaluate("[window.__rs.state.project.art.borderTheme, document.getElementById('borderThemeInput').value, document.getElementById('versions').hidden]")]
         await pg.screenshot(path=O + 'desk-1b-redescribed.png')
         # Simple → None → AI (reused, free)
@@ -146,7 +146,7 @@ async def main():
         await pg.click('#aiBorderBtn')
         await pg.wait_for_function("window.__rs.state.project.art", timeout=60000); await idle(pg)
         last = arts[-1] if arts else {}
-        d['themed_call'] = [last.get('req', {}).get('layout'), last.get('req', {}).get('borderTheme'), 'Border motifs: basketballs' in last.get('art', {}).get('prompt', '')]
+        d['themed_call'] = [last.get('req', {}).get('layout'), last.get('req', {}).get('borderTheme'), 'The border: basketballs' in last.get('art', {}).get('prompt', '')]
         d['fit2'] = await pg.evaluate(INSIDE)
         await pg.screenshot(path=O + 'desk-5-themed.png')
         d['errors'] = errs

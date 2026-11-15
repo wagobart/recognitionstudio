@@ -33,8 +33,8 @@ export const LAYOUTS = {
   // photo and lettering (same open area as the app-drawn simple border). Never chosen by the planner.
   border: {
     label: 'Border only',
-    art: 'ONLY a decorative border band running around all four edges of the page, about 7% of the page width deep, with each corner marked by a slightly larger version of the same motif. Everything inside the border (about 84% of the width and 78% of the height, centered) is plain, smooth, completely empty paper with nothing in it',
-    portrait: 'ONLY a decorative border band running around all four edges of the tall page, about 8% of the page width deep, with each corner marked by a slightly larger version of the same motif. Everything inside the border (about 78% of the width and 84% of the height, centered) is plain, smooth, completely empty paper with nothing in it',
+    art: 'ONLY a decorative border band running around all four edges of the page, about 7% of the page width deep, the same all the way round, corners included. Everything inside the border (about 84% of the width and 78% of the height, centered) is plain, smooth, completely empty paper with nothing in it',
+    portrait: 'ONLY a decorative border band running around all four edges of the tall page, about 8% of the page width deep, the same all the way round, corners included. Everything inside the border (about 78% of the width and 84% of the height, centered) is plain, smooth, completely empty paper with nothing in it',
   },
 };
 // compositions the planner may choose (the border-only frame is the user's choice)
@@ -70,9 +70,9 @@ export function buildImagePrompt({ artPrompt, layout, output, photo, orient, pap
   const border = layout === 'border';
   if (photo) artPrompt = `${artPrompt}. ${photoInstruction(layout, photo.subject)}`;
   // a border-only frame is built from small repeated motifs; everything else has one focal subject
-  const subjectLine = border ? `Border motifs: ${artPrompt}.` : null;
+  const subjectLine = border ? `The border: ${artPrompt}.` : null;
   const restraint = border
-    ? 'Build the band ONLY from the motifs named above, repeated or linked along the edges, joined by a plain line, rope or simple rule; each corner is a slightly larger version of one of those same motifs. Do not add anything that was not named: no leaves, vines, branches, flowers, wreaths, laurel, scrollwork, flourishes or filler ornament. No large focal subject, no central emblem, nothing inside the border.'
+    ? 'Draw the border exactly as described above and nothing more. If it describes one object (for example a single leash, rope, ribbon or chain), that one object IS the border: it runs continuously around all four edges, unbroken, without repeating. If it names small motifs, repeat them evenly along the edges. Corners get no special treatment: no corner ornaments, clusters, medallions or larger motifs, just the border turning the corner. Do not add anything that was not described: no leaves, vines, branches, flowers, wreaths, laurel, scrollwork, flourishes or filler ornament. No large focal subject, no central emblem, nothing inside the border.'
     : 'Keep it uncluttered: one clear focal subject with only a few supporting details, never a collage of symbols.';
   if (output === 'pyrography') {
     return [

@@ -1,10 +1,10 @@
-import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=20';
-import { LAYOUT_LABELS } from './layout.js?v=20';
-import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=20';
-import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=20';
-import { detectZone } from './zone.js?v=20';
-import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=20';
-import { zoneFor, plainOn, orientOf, aiBorderOn } from './layout.js?v=20';
+import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=21';
+import { LAYOUT_LABELS } from './layout.js?v=21';
+import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=21';
+import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=21';
+import { detectZone } from './zone.js?v=21';
+import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=21';
+import { zoneFor, plainOn, orientOf, aiBorderOn } from './layout.js?v=21';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];

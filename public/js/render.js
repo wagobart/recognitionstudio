@@ -1,7 +1,7 @@
 // Three renderers fed by the same layout: live SVG preview, PNG (canvas) and PDF (pdf-lib).
-import { computeLayout, dims, plainOn, plainPaper } from './layout.js?v=20';
-import { cssFamily, fontBuffer, loadStyle } from './fonts.js?v=20';
-import { photoPngBytes } from './photo.js?v=20';
+import { computeLayout, dims, plainOn, plainPaper } from './layout.js?v=21';
+import { cssFamily, fontBuffer, loadStyle } from './fonts.js?v=21';
+import { photoPngBytes } from './photo.js?v=21';
 
 // ---- "Fade the artwork behind the words": a soft-edged veil over the lettering area (no AI) ----
 // Drawn per pixel (no canvas filters, which older Safari lacks) so every renderer gets the same image.

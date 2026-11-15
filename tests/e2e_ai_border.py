@@ -94,6 +94,25 @@ async def main():
         d['redescribed'] = [last.get('req', {}).get('layout'), last.get('req', {}).get('borderTheme'), 'The border: rope and small anchors' in last.get('art', {}).get('prompt', ''),
                             await pg.evaluate("[window.__rs.state.project.art.borderTheme, document.getElementById('borderThemeInput').value, document.getElementById('versions').hidden]")]
         await pg.screenshot(path=O + 'desk-1b-redescribed.png')
+        # lighter / darker slider (free): darker PNG has darker border, lighter has lighter; PDF still exports
+        LUM = """async (t) => { const p = window.__rs.state.project; const old = p.style.artTone; p.style.artTone = t;
+          const blob = await window.__rs.renderPng(p, 600); p.style.artTone = old;
+          const img = await createImageBitmap(blob); const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+          const g = c.getContext('2d'); g.drawImage(img, 0, 0); const d = g.getImageData(0, 0, c.width, 40).data; let s = 0;
+          for (let i = 0; i < d.length; i += 4) s += d[i] + d[i+1] + d[i+2]; return s / (d.length / 4) / 3; }"""
+        lum = [await pg.evaluate(LUM, t) for t in (-0.8, 0, 0.8)]
+        n0 = len(arts)
+        await pg.evaluate("(()=>{const r=document.getElementById('toneRange'); r.value='0.6'; r.dispatchEvent(new Event('input',{bubbles:true}));})()")
+        await pg.wait_for_timeout(900)
+        d['tone'] = await pg.evaluate("[document.getElementById('toneRow').hidden, document.getElementById('toneLabel').textContent, document.getElementById('toneOut').textContent, window.__rs.state.project.style.artTone, (document.querySelector('#sheetHolder svg image')||{}).getAttribute && document.querySelector('#sheetHolder svg image').getAttribute('href').startsWith('blob:')]")
+        d['tone_lum_lighter_asdrawn_darker'] = [round(x, 1) for x in lum]
+        d['tone_calls'] = len(arts) - n0
+        await pg.screenshot(path=O + 'desk-1c-darker.png')
+        await pg.evaluate("(()=>{const r=document.getElementById('toneRange'); r.value='0.02'; r.dispatchEvent(new Event('input',{bubbles:true}));})()")
+        await pg.wait_for_timeout(500)
+        d['tone_snap'] = await pg.evaluate("[window.__rs.state.project.style.artTone, document.getElementById('toneOut').textContent]")
+        await pg.evaluate("(()=>{const r=document.getElementById('toneRange'); r.value='0.6'; r.dispatchEvent(new Event('input',{bubbles:true}));})()")
+        await pg.wait_for_timeout(500)
         # Simple → None → AI (reused, free)
         n0 = len(arts)
         await pg.click('#borderSeg button[data-border=simple]'); await pg.wait_for_timeout(400)
@@ -189,6 +208,9 @@ async def main():
               and all(d['full_art_controls_hidden'])
               and d['redescribe_box'] == [False, True, True, 'Redraw the border uses 1 AI design'] and d['empty_redraw_calls'] == 0
               and d['redescribed'] == ['border', 'rope and small anchors', True, ['rope and small anchors', 'rope and small anchors', False]]
+              and d['tone'] == [False, 'Border: lighter or darker', 'Darker 60%', 0.6, True] and d['tone_calls'] == 0
+              and d['tone_lum_lighter_asdrawn_darker'][0] > d['tone_lum_lighter_asdrawn_darker'][1] > d['tone_lum_lighter_asdrawn_darker'][2]
+              and d['tone_snap'] == [0, 'As drawn']
               and d['simple'] == [False, True, True, 2, 'simple'] and d['none'] == [False, True, False, 'none']
               and d['ai_again'] == ['border', False, False, 'ai'] and d['calls_for_switching'] == 0
               and d['wood'] == ['pyrography', 'border', True, 'ai', 0]

@@ -1,7 +1,7 @@
 // Three renderers fed by the same layout: live SVG preview, PNG (canvas) and PDF (pdf-lib).
-import { computeLayout, dims, plainOn, plainPaper } from './layout.js?v=21';
-import { cssFamily, fontBuffer, loadStyle } from './fonts.js?v=21';
-import { photoPngBytes } from './photo.js?v=21';
+import { computeLayout, dims, plainOn, plainPaper } from './layout.js?v=23';
+import { cssFamily, fontBuffer, loadStyle } from './fonts.js?v=23';
+import { photoPngBytes } from './photo.js?v=23';
 
 // ---- "Fade the artwork behind the words": a soft-edged veil over the lettering area (no AI) ----
 // Drawn per pixel (no canvas filters, which older Safari lacks) so every renderer gets the same image.
@@ -49,11 +49,56 @@ function ornament(r, outline) {
 <path d="M${cx - s} ${r.y} L${cx} ${r.y - s} L${cx + s} ${r.y} L${cx} ${r.y + s} Z" fill="${outline ? 'none' : r.color}" stroke="${r.color}" stroke-width="1.4"/>`;
 }
 
+// ---------- artwork lighter / darker (style.artTone -1..1, 0 = as drawn; free, no AI) ----------
+// Darker = a gamma curve (lines and shading deepen); lighter = blend toward white. The paper (measured in
+// the middle of the page) keeps its own tone either way.
+// The same pixel mapping is used for the preview, thumbnails, PNG and PDF.
+export const artTone = (p) => Math.max(-1, Math.min(1, Number(p?.style?.artTone) || 0));
+function toneLut(t) {
+  const lut = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v++) lut[v] = t > 0 ? 255 * Math.pow(v / 255, 1 + 2 * t) : v + (255 - v) * -t * 0.85;
+  return lut;
+}
+function toneCanvas(img, t, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(img, 0, 0, w, h);
+  const id = g.getImageData(0, 0, w, h), d = id.data, lut = toneLut(t);
+  // the paper keeps its own tone: measure it in the middle of the page (the empty area) and only change
+  // pixels clearly darker than it, fading in over ~50 levels so there are no hard edges
+  let sum = 0, n = 0;
+  for (let y = Math.floor(h * 0.3); y < h * 0.7; y += 4)
+    for (let x = Math.floor(w * 0.3); x < w * 0.7; x += 4) { const i = (y * w + x) * 4; sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; n++; }
+  const paper = n ? sum / n : 255;
+  for (let i = 0; i < d.length; i += 4) {
+    const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const k = Math.max(0, Math.min(1, (paper - 10 - L) / 50));
+    if (!k) continue;
+    d[i] += (lut[d[i]] - d[i]) * k; d[i + 1] += (lut[d[i + 1]] - d[i + 1]) * k; d[i + 2] += (lut[d[i + 2]] - d[i + 2]) * k;
+  }
+  g.putImageData(id, 0, 0);
+  return c;
+}
+const toneCache = new Map();
+export async function tonedArtUrl(url, t, maxW = 1600) {
+  const key = `${url}|${t}|${maxW}`;
+  if (toneCache.has(key)) return toneCache.get(key);
+  const img = await loadImage(url);
+  const w = Math.min(maxW, img.naturalWidth || maxW), h = Math.round(w * ((img.naturalHeight || 1) / (img.naturalWidth || 1)));
+  const c = toneCanvas(img, t, w, h);
+  const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.92));
+  const out = URL.createObjectURL(blob);
+  if (toneCache.size > 40) { for (const v of toneCache.values()) URL.revokeObjectURL(v); toneCache.clear(); }
+  toneCache.set(key, out);
+  return out;
+}
+
 export function svgMarkup(project, { interactive = true, artHref } = {}) {
   const { items, rules, zone, photo } = computeLayout(project);
   const { W: DESIGN_W, H: DESIGN_H } = dims(project);
   const outline = project.output === 'pyrography' && project.style?.outline;
-  const href = artHref ?? project.art?.url;
+  const href = artHref ?? (project.art && artTone(project) ? project._artHref : null) ?? project.art?.url;
   // photo layer: the finished image is prepared asynchronously (project._photoHref); until then a soft placeholder
   const photoEl = !photo
     ? ''
@@ -105,6 +150,18 @@ async function artRaster(project, targetW = 3000) {
   if (!res.ok) throw new Error('Artwork could not be loaded (' + res.status + ')');
   const type = res.headers.get('content-type') || '';
   const bytes = new Uint8Array(await res.arrayBuffer());
+  const t = artTone(project);
+  if (t) {
+    // lighter / darker: the same pixel mapping as the preview, at print size
+    const blobUrl = URL.createObjectURL(new Blob([bytes], { type: type || 'image/png' }));
+    try {
+      const img = await loadImage(blobUrl);
+      const { W: DW, H: DH } = dims(project);
+      const c = toneCanvas(img, t, targetW, Math.round(targetW * (DH / DW)));
+      const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.92));
+      return { bytes: new Uint8Array(await blob.arrayBuffer()), type: 'jpg' };
+    } finally { URL.revokeObjectURL(blobUrl); }
+  }
   if (/png/.test(type)) return { bytes, type: 'png' };
   if (/jpe?g/.test(type)) return { bytes, type: 'jpg' };
   // svg (test artwork) or webp: rasterize through canvas

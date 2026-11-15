@@ -42,7 +42,7 @@
   gtag('config', id, { page_location: u.href });
 })();
 </script>
-<link rel="stylesheet" href="/css/app.css?v=21">
+<link rel="stylesheet" href="/css/app.css?v=23">
 </head>
 <body>
 <header class="top">
@@ -239,6 +239,10 @@
           </div>
           <button class="primary-btn wide" id="addArtBtn" type="button" hidden>Add full AI artwork</button>
           <div class="versions" id="versions" hidden></div>
+          <div class="wash-row" id="toneRow" hidden>
+            <label class="range"><span id="toneLabel">Artwork: lighter or darker</span><input type="range" id="toneRange" min="-1" max="1" step="0.05" value="0"><output id="toneOut">As drawn</output></label>
+            <p class="hint">Middle = as drawn. Free — no redraw.</p>
+          </div>
           <div class="wash-row" id="washRow">
             <label class="range"><span>Fade art behind the words</span><input type="range" id="washRange" min="0" max="0.9" step="0.05" value="0"><output id="washOut">Off</output></label>
             <p class="hint">Softens whatever is drawn under the lettering so the words read clearly. Free — no redraw.</p>
@@ -367,6 +371,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script type="module" src="/js/app.js?v=21"></script>
+<script type="module" src="/js/app.js?v=23"></script>
 </body>
 </html>

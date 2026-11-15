@@ -1,10 +1,10 @@
-import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=21';
-import { LAYOUT_LABELS } from './layout.js?v=21';
-import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=21';
-import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=21';
-import { detectZone } from './zone.js?v=21';
-import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=21';
-import { zoneFor, plainOn, orientOf, aiBorderOn } from './layout.js?v=21';
+import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=23';
+import { LAYOUT_LABELS } from './layout.js?v=23';
+import { svgMarkup, renderPdf, renderPng, fileBase, artTone, tonedArtUrl } from './render.js?v=23';
+import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=23';
+import { detectZone } from './zone.js?v=23';
+import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=23';
+import { zoneFor, plainOn, orientOf, aiBorderOn } from './layout.js?v=23';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -121,7 +121,7 @@ function blankProject(idea, output, orient = 'landscape') {
 }
 
 function serializable(p) {
-  const { _placeholders, _showZone, _photoHref, _toldShared, ...rest } = p;
+  const { _placeholders, _showZone, _photoHref, _artHref, _toldShared, ...rest } = p;
   return rest;
 }
 
@@ -152,6 +152,10 @@ function render() {
     p._photoHref = null;
     if (photoLayerOn(p)) {
       try { p._photoHref = await photoUrl(photoSrc(p.photo), 760); } catch (e) { console.warn(e); }
+    }
+    p._artHref = null;
+    if (p.art && artTone(p)) {
+      try { p._artHref = await tonedArtUrl(p.art.url, artTone(p)); } catch (e) { console.warn(e); }
     }
     if (gen !== renderGen || state.project !== p) return; // a newer render has started
     p._placeholders = true;
@@ -195,6 +199,7 @@ function fillForm() {
   $('#offXRange').value = p.style.offsetX || 0;
   $('#widthRange').value = p.style.widthScale || 1;
   syncWash();
+  syncTone();
   $('#outlineToggle').checked = !!p.style.outline;
   $('#subLines').open = !!(p.text.details);
   autosizeAll();
@@ -347,6 +352,21 @@ function syncWash() {
   r.value = w;
   $('#washOut').textContent = w ? Math.round(w * 100) + '%' : 'Off';
 }
+// make the artwork (an AI border especially) lighter or darker — free, no redraw
+function syncTone() {
+  const r = $('#toneRange');
+  if (!r || !state.project) return;
+  const t = artTone(state.project);
+  r.value = t;
+  $('#toneOut').textContent = !t ? 'As drawn' : (t > 0 ? 'Darker ' : 'Lighter ') + Math.round(Math.abs(t) * 100) + '%';
+  $('#toneLabel').textContent = aiBorderOn(state.project) ? 'Border: lighter or darker' : 'Artwork: lighter or darker';
+}
+$('#toneRange')?.addEventListener('input', (e) => {
+  const v = Number(e.target.value);
+  state.project.style.artTone = Math.abs(v) < 0.04 ? 0 : v; // snaps back to "as drawn" near the middle
+  syncTone(); render(); markDirty();
+});
+$('#toneRange')?.addEventListener('dblclick', () => { state.project.style.artTone = 0; syncTone(); render(); markDirty(); });
 $('#washRange')?.addEventListener('input', (e) => {
   state.project.style.wash = Number(e.target.value);
   syncWash(); render(); markDirty();
@@ -417,6 +437,7 @@ function syncArtSection() {
   $('#redrawBtn').hidden = aiBorderOn(p) && !state.pendingLayout;
   $('#noArtBtn').hidden = plain || aiBorderOn(p) || busy; // the Border choice covers it there
   if ($('#washRow')) $('#washRow').hidden = plain || !p.art || aiBorderOn(p);
+  if ($('#toneRow')) { $('#toneRow').hidden = !p.art; syncTone(); }
   $('#galleryPickBtn').hidden = busy;
   const shareable = !!shareableArtOf(p);
   $('#shareRow').hidden = !shareable;
@@ -1581,6 +1602,7 @@ function projectCard(pr, output, { example = false, admin = false } = {}) {
     Promise.all([
       loadStyle(prev.style.lettering),
       photoLayerOn(prev) ? photoUrl(prev.photo, 260).then((u) => (prev._photoHref = u)).catch(() => {}) : null,
+      prev.art?.url && artTone(prev) ? tonedArtUrl(prev.art.url, artTone(prev), 520).then((u) => (prev._artHref = u)).catch(() => {}) : null,
     ]).then(() => { thumb.innerHTML = svgMarkup(prev, { interactive: false }); });
   } else if (v?.url || pr.artUrl) thumb.style.backgroundImage = `url("${v?.url || pr.artUrl}")`;
   const award = pr.preview?.text?.title || pr.title;

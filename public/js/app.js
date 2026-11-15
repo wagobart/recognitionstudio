@@ -1,10 +1,10 @@
-import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=19';
-import { LAYOUT_LABELS } from './layout.js?v=19';
-import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=19';
-import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=19';
-import { detectZone } from './zone.js?v=19';
-import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=19';
-import { zoneFor, plainOn, orientOf, aiBorderOn } from './layout.js?v=19';
+import { STYLES, loadStyle, loadFont, cssFamily } from './fonts.js?v=20';
+import { LAYOUT_LABELS } from './layout.js?v=20';
+import { svgMarkup, renderPdf, renderPng, fileBase } from './render.js?v=20';
+import { CHIPS, loadLibrary, searchLibrary } from './library.js?v=20';
+import { detectZone } from './zone.js?v=20';
+import { PHOTO_DEFAULTS, SHAPES, PLACES, photoUrl, photoLayerOn, photoPainted, prepareUpload, deriveArtCanvas } from './photo.js?v=20';
+import { zoneFor, plainOn, orientOf, aiBorderOn } from './layout.js?v=20';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -411,6 +411,10 @@ function syncArtSection() {
     el.hidden = plain;
   // an AI border: the full-artwork description and notes don't describe it
   if (aiBorderOn(p)) { $('#artPromptInput').closest('details').hidden = true; $('#designNotes').hidden = true; }
+  // under an AI border the border's own description box replaces "Change something" (the Redraw button
+  // still appears when a different composition is picked)
+  $('#tweakInput').closest('.fld').hidden = plain || aiBorderOn(p);
+  $('#redrawBtn').hidden = aiBorderOn(p) && !state.pendingLayout;
   $('#noArtBtn').hidden = plain || aiBorderOn(p) || busy; // the Border choice covers it there
   if ($('#washRow')) $('#washRow').hidden = plain || !p.art || aiBorderOn(p);
   $('#galleryPickBtn').hidden = busy;
@@ -520,10 +524,16 @@ function syncBorderControls(p, plain, busy) {
   if (!kind) { state.borderAsk = false; return; }
   const shown = state.borderAsk ? 'ai' : kind;
   $$('#borderSeg button').forEach((b) => { b.setAttribute('aria-checked', String(b.dataset.border === shown)); b.disabled = busy; });
-  const ask = state.borderAsk && kind !== 'ai';
+  // the box is open while choosing a first AI border, and stays open under an AI border so it can be re-described
+  const ask = kind === 'ai' || state.borderAsk;
   $('#aiBorderBox').hidden = !ask;
-  if (ask && document.activeElement !== $('#borderThemeInput')) $('#borderThemeInput').value = borderTheme(p);
+  if (ask && document.activeElement !== $('#borderThemeInput')) $('#borderThemeInput').value = kind === 'ai' ? (p.art.borderTheme ?? borderTheme(p)) : borderTheme(p);
   $('#aiBorderBtn').disabled = busy;
+  $('#aiBorderBtn').innerHTML = kind === 'ai' ? 'Redraw the border <small>uses 1 AI design</small>' : 'Design my border <small>uses 1 AI design</small>';
+  if ($('#aiBorderHint')) $('#aiBorderHint').textContent = kind === 'ai'
+    ? 'Change the description and redraw. This border stays under versions, so you can go back to it.'
+    : 'Your photo and words stay exactly where they are. You can switch back any time — every border is kept.';
+
   $('#plainNote').hidden = true;
 }
 $$('#borderSeg button').forEach((b) => b.addEventListener('click', () => {
@@ -552,6 +562,10 @@ $$('#borderSeg button').forEach((b) => b.addEventListener('click', () => {
 }));
 $('#borderThemeInput')?.addEventListener('input', (e) => { state.project.borderTheme = e.target.value; markDirty(); });
 $('#aiBorderBtn')?.addEventListener('click', () => {
+  const p = state.project;
+  const v = $('#borderThemeInput').value.trim();
+  if (aiBorderOn(p) && !v) { $('#borderThemeInput').focus(); toast('Describe what the border should feature.'); return; }
+  p.borderTheme = v;
   state.borderAsk = false;
   generateArt({ layout: 'border' });
 });
@@ -680,6 +694,7 @@ async function generateArt({ tweak = '', layout, output, seed, withPhoto, orient
       if (!art) throw new Error('The connection dropped before the artwork arrived. Please try again.');
     }
     await fitZone(art);
+    if (art.layout === 'border') art.borderTheme = borderTheme(p);
     p.art = art;
     p.orient = art.orient === 'portrait' ? 'portrait' : 'landscape';
     p.plainBg = false;

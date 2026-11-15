@@ -2,7 +2,8 @@
 
 Desktop: start screen photo + "No artwork" → Border: AI-designed → one /api/art call with layout
 'border'; photo and lettering stay inside the measured open area; Artwork → Border seg switches
-Simple / None (free, AI border kept under versions) and back to AI (reused, free); a new design
+Simple / None (free, AI border kept under versions); after it's made the border can be re-described
+and redrawn from the same box (old border kept as a version) and back to AI (reused, free); a new design
 started with a Simple border asks "What should the border feature?" and sends that theme; the
 wood-burning version of an AI border costs nothing; reopen keeps it; PDF has the name.
 iPhone 15 emulation: wood-burning design started with an AI border, no sideways scroll.
@@ -81,6 +82,18 @@ async def main():
         d['fit'] = await pg.evaluate(INSIDE)
         d['first_call'] = {'layout': arts[0]['req'].get('layout'), 'has_theme_key': 'borderTheme' in arts[0]['req'], 'prompt_border': 'ONLY a decorative border band' in arts[0]['art'].get('prompt', '')} if arts else None
         d['full_art_controls_hidden'] = await pg.evaluate("[document.getElementById('designNotes').hidden, document.getElementById('artPromptInput').closest('details').hidden, document.getElementById('noArtBtn').hidden, document.getElementById('washRow').hidden]")
+        # re-describe the border after it's made
+        d['redescribe_box'] = await pg.evaluate("[document.getElementById('aiBorderBox').hidden, document.getElementById('tweakInput').closest('.fld').hidden, document.getElementById('redrawBtn').hidden, document.getElementById('aiBorderBtn').textContent.trim()]")
+        n0 = len(arts)
+        await pg.fill('#borderThemeInput', ''); await pg.click('#aiBorderBtn'); await pg.wait_for_timeout(400)
+        d['empty_redraw_calls'] = len(arts) - n0
+        await pg.fill('#borderThemeInput', 'rope and small anchors')
+        await pg.click('#aiBorderBtn')
+        await pg.wait_for_function("window.__rs.state.project.artHistory.length === 2", timeout=60000); await idle(pg)
+        last = arts[-1] if arts else {}
+        d['redescribed'] = [last.get('req', {}).get('layout'), last.get('req', {}).get('borderTheme'), 'Border motifs: rope and small anchors' in last.get('art', {}).get('prompt', ''),
+                            await pg.evaluate("[window.__rs.state.project.art.borderTheme, document.getElementById('borderThemeInput').value, document.getElementById('versions').hidden]")]
+        await pg.screenshot(path=O + 'desk-1b-redescribed.png')
         # Simple → None → AI (reused, free)
         n0 = len(arts)
         await pg.click('#borderSeg button[data-border=simple]'); await pg.wait_for_timeout(400)
@@ -174,8 +187,10 @@ async def main():
               and d['seg_after_design'] == 'ai' and d['fit']['photoInside'] and d['fit']['letteringInside']
               and d['first_call'] and d['first_call']['layout'] == 'border' and d['first_call']['prompt_border']
               and all(d['full_art_controls_hidden'])
-              and d['simple'] == [False, True, True, 1, 'simple'] and d['none'] == [False, True, False, 'none']
-              and d['ai_again'] == ['border', False, True, 'ai'] and d['calls_for_switching'] == 0
+              and d['redescribe_box'] == [False, True, True, 'Redraw the border uses 1 AI design'] and d['empty_redraw_calls'] == 0
+              and d['redescribed'] == ['border', 'rope and small anchors', True, ['rope and small anchors', 'rope and small anchors', False]]
+              and d['simple'] == [False, True, True, 2, 'simple'] and d['none'] == [False, True, False, 'none']
+              and d['ai_again'] == ['border', False, False, 'ai'] and d['calls_for_switching'] == 0
               and d['wood'] == ['pyrography', 'border', True, 'ai', 0]
               and d['pdf_has_name'] and d['reopened'] == ['border', 'certificate']
               and d['default_border'] == 'simple' and d['simple_start'] == [False, True, True, 0]
